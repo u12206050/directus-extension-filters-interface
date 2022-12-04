@@ -44,6 +44,7 @@ type RelationProp = {
     template: string
     interface: string
     collection: string
+    filter?: Filter
 }
 ```
 

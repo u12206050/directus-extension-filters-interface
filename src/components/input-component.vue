@@ -26,11 +26,11 @@
 		allow-other
 		@update:model-value="emitValue($event)"
 	/>
-  <select-dropdown-m2o v-else-if="is === 'interface-select-dropdown-m2o'"
-     v-bind="inputProps"
-     :value="value"
-     @input="emitValue($event)"
-  />
+	<select-dropdown-m2o v-else-if="is === 'interface-select-dropdown-m2o'"
+		v-bind="inputProps"
+		:value="value"
+		@input="emitValue($event)"
+	/>
 	<v-menu v-else :close-on-content-click="false" :show-arrow="true" placement="bottom-start">
 		<template #activator="{ toggle }">
 			<v-icon
@@ -71,7 +71,7 @@ export default defineComponent({
 			type: Boolean,
 			default: true,
 		},
-    inputProps: Object,
+	inputProps: Object,
 	},
 	emits: ['input'],
 	setup(props, { emit }) {

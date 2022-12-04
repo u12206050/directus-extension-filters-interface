@@ -56,14 +56,6 @@ import { defineComponent, computed, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useApi, useStores, useCollection, getFieldsFromTemplate } from '@directus/extensions-sdk';
 
-/**
- * @NOTE
- *
- * The value of a many to one can be one of three things: A primary key (number/string), a nested
- * object of edits (including primary key = editing existing) or an object with new values (no
- * primary key)
- */
-
 export default defineComponent({
   // components: { DrawerItem, DrawerCollection },
   props: {
@@ -87,6 +79,10 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    filter: {
+      type: Object,
+      default: () => ({}),
+    },
   },
   emits: ['input'],
   setup(props, { emit }) {
@@ -108,8 +104,6 @@ export default defineComponent({
 
     const { setCurrent, currentItem, loading: loadingCurrent, currentPrimaryKey } = useCurrent();
 
-    const { edits, stageEdits } = useEdits();
-
     const menuActive = ref(false);
 
     return {
@@ -128,8 +122,6 @@ export default defineComponent({
       totalCount,
       stageSelection,
       currentPrimaryKey,
-      edits,
-      stageEdits,
       relatedPrimaryKeyField
     };
 
@@ -150,13 +142,12 @@ export default defineComponent({
               fetchCurrent(newValue);
             }
 
-                // If the value isn't a primary key, the current value will be set by the editing
-            // handlers in useEdit()
+            // If the value isn't a primary key, set to null (await input)
             else if (newValue === null) {
               currentItem.value = null;
             }
 
-                // If value is already fullfilled, let's fetch all necessary
+            // If value is already fullfilled, let's fetch all necessary
             // fields for display template
             else if (
                 !currentItem.value &&
@@ -257,6 +248,7 @@ export default defineComponent({
           const response = await api.get(endpoint, {
             params: {
               fields: fields,
+              filter: props.filter,
               limit: -1,
             },
           });
@@ -347,44 +339,6 @@ export default defineComponent({
         } else {
           emit('input', newSelection[0]);
         }
-      }
-    }
-
-    function useEdits() {
-      const edits = computed(() => {
-        // If the current value isn't a primitive, it means we've already staged some changes
-        // This ensures we continue on those changes instead of starting over
-        if (props.value && typeof props.value === 'object') {
-          return props.value;
-        }
-
-        return {};
-      });
-
-      return { edits, stageEdits };
-
-      function stageEdits(newEdits: Record<string, any>) {
-        if (!relatedPrimaryKeyField.value) return;
-
-        // Make sure we stage the primary key if it exists. This is needed to have the API
-        // update the existing item instead of create a new one
-        if (currentPrimaryKey.value && currentPrimaryKey.value !== '+') {
-          emit('input', {
-            [relatedPrimaryKeyField.value!.field]: currentPrimaryKey.value,
-            ...newEdits,
-          });
-        } else {
-          if (relatedPrimaryKeyField.value!.field in newEdits && newEdits[relatedPrimaryKeyField.value!.field] === '+') {
-            delete newEdits[relatedPrimaryKeyField.value!.field];
-          }
-
-          emit('input', newEdits);
-        }
-
-        currentItem.value = {
-          ...currentItem.value ?? {},
-          ...newEdits,
-        };
       }
     }
   },
