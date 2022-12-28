@@ -71,7 +71,7 @@ export default defineComponent({
 			type: Boolean,
 			default: true,
 		},
-	inputProps: Object,
+		inputProps: Object,
 	},
 	emits: ['input'],
 	setup(props, { emit }) {
