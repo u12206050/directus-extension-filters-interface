@@ -5,6 +5,7 @@
 		handle=".drag-handle"
 		class="group"
 		:list="filterSync"
+		:disabled="disabled"
 		:group="{ name: 'g1' }"
 		:item-key="getIndex"
 		:swap-threshold="0.3"
@@ -12,7 +13,7 @@
 		@change="$emit('change')"
 	>
 		<template #item="{ element, index }">
-			<li class="row">
+			<li class="row" :class="{ disabled }">
 				<div v-if="filterInfo[index].isField" block class="node field">
 					<div class="header" :class="{ inline }">
 						<v-icon name="drag_indicator" class="drag-handle" small></v-icon>
@@ -75,8 +76,8 @@
 						:filter="element[filterInfo[index].name]"
 						:depth="depth + 1"
 						:inline="inline"
-            :tree="tree"
-            :branches="branches"
+						:tree="tree"
+						:branches="branches"
 						@change="$emit('change')"
 						@remove-node="$emit('remove-node', [`${index}.${filterInfo[index].name}`, ...$event])"
 						@update:filter="replaceNode(index, { [filterInfo[index].name]: $event })"
@@ -99,20 +100,24 @@ import { fieldToFilter, getField, getNodeName, getComparator } from '../utils';
 const { t } = useI18n();
 
 const props = defineProps({
-		filter: {
-			type: Object,
-			required: true,
-		},
-		tree: Object,
-		branches: Array,
-		depth: {
-			type: Number,
-			default: 1,
-		},
-		inline: {
-			type: Boolean,
-			default: false,
-		},
+	filter: {
+		type: Object,
+		required: true,
+	},
+	tree: Object,
+	branches: Array,
+	depth: {
+		type: Number,
+		default: 1,
+	},
+	inline: {
+		type: Boolean,
+		default: false,
+	},
+	disabled: {
+		type: Boolean,
+		default: false,
+	},
 })
 
 const emit = defineEmits(['remove-node', 'update:filter', 'change'])
@@ -135,13 +140,13 @@ const filterInfo = computed({
 
 			return isField
 				? {
-						id,
-						isField,
-						name,
-						field: getField(node),
-						comparator: getComparator(node),
-						node,
-					}
+					id,
+					isField,
+					name,
+					field: getField(node),
+					comparator: getComparator(node),
+					node,
+				}
 				: { id, name, isField, node };
 		});
 	},
@@ -276,8 +281,8 @@ function getCompareOptions(name) {
 	if (fieldInfo === null) return [];
 
 	return getFilterOperatorsForType(fieldInfo?.type || 'string').map((type) => ({
-	text: t(`operators.${type}`),
-	value: `_${type}`,
+		text: t(`operators.${type}`),
+		value: `_${type}`,
 	}));
 }
 </script>
@@ -410,12 +415,20 @@ function getCompareOptions(name) {
 	}
 }
 
+.row.disabled {
+
+	.drag-handle,
+	.delete {
+		display: none;
+	}
+}
+
 .group :deep(.sortable-ghost) {
 	.node .header {
 		background-color: var(--primary-alt);
 		border-color: var(--primary);
 
-		> * {
+		>* {
 			opacity: 0;
 		}
 	}

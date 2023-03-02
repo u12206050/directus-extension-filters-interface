@@ -33,8 +33,7 @@
 	/>
 	<v-menu v-else :close-on-content-click="false" :show-arrow="true" placement="bottom-start">
 		<template #activator="{ toggle }">
-			<v-icon
-				v-if="type.startsWith('geometry') || type === 'json'"
+			<v-icon v-if="type.startsWith('geometry') || type === 'json'"
 				class="preview"
 				:name="type === 'json' ? 'integration_instructions' : 'map'"
 				@click="toggle"
@@ -42,7 +41,8 @@
 			<div v-else class="preview" @click="toggle">{{ displayValue }}</div>
 		</template>
 		<div class="input" :class="type">
-			<component :is="is" v-bind="inputProps" class="input-component" small :type="type" :value="value" @input="emitValue($event)" />
+			<component :is="is" v-bind="inputProps" class="input-component" small :type="type" :value="value"
+				@input="emitValue($event)" />
 		</div>
 	</v-menu>
 </template>
@@ -53,8 +53,8 @@ import { useI18n } from 'vue-i18n';
 import SelectDropdownM2o from "./select-dropdown-m2o.vue";
 
 export default defineComponent({
-  components: {SelectDropdownM2o},
-  props: {
+	components: { SelectDropdownM2o },
+	props: {
 		is: {
 			type: String,
 			required: true,

@@ -9,11 +9,8 @@
         <div class="input" @click="onPreviewClick">
           <template v-if="currentItem">
             <div class="preview">
-              <render-template
-                  :collection="relatedCollection.collection"
-                  :item="currentItem"
-                  :template="displayTemplate"
-              />
+              <render-template :collection="relatedCollection.collection" :item="currentItem"
+                :template="displayTemplate" />
             </div>
             <v-icon v-tooltip="t('deselect')" name="close" class="deselect" @click.stop="$emit('input', null)" />
           </template>
@@ -34,13 +31,8 @@
         </template>
 
         <template v-else-if="relatedPrimaryKeyField">
-          <v-list-item
-              v-for="item in items"
-              :key="item[relatedPrimaryKeyField.field]"
-              :active="value === item[relatedPrimaryKeyField.field]"
-              clickable
-              @click="setCurrent(item)"
-          >
+          <v-list-item v-for="item in items" :key="item[relatedPrimaryKeyField.field]"
+            :active="value === item[relatedPrimaryKeyField.field]" clickable @click="setCurrent(item)">
             <v-list-item-content>
               <render-template :collection="relatedCollection.collection" :template="displayTemplate" :item="item" />
             </v-list-item-content>
@@ -57,7 +49,6 @@ import { useI18n } from 'vue-i18n';
 import { useApi, useStores, useCollection, getFieldsFromTemplate } from '@directus/extensions-sdk';
 
 export default defineComponent({
-  // components: { DrawerItem, DrawerCollection },
   props: {
     value: {
       type: [Number, String, Object],
@@ -130,34 +121,34 @@ export default defineComponent({
       const loading = ref(false);
 
       watch(
-          () => props.value,
-          (newValue: any) => {
-            // When the newly configured value is a primitive, assume it's the primary key
-            // of the item and fetch it from the API to render the preview
-            if (
-                newValue !== null &&
-                newValue !== currentItem.value?.[relatedPrimaryKeyField.value!.field] &&
-                (typeof newValue === 'string' || typeof newValue === 'number')
-            ) {
-              fetchCurrent(newValue);
-            }
+        () => props.value,
+        (newValue: any) => {
+          // When the newly configured value is a primitive, assume it's the primary key
+          // of the item and fetch it from the API to render the preview
+          if (
+            newValue !== null &&
+            newValue !== currentItem.value?.[relatedPrimaryKeyField.value!.field] &&
+            (typeof newValue === 'string' || typeof newValue === 'number')
+          ) {
+            fetchCurrent(newValue);
+          }
 
-            // If the value isn't a primary key, set to null (await input)
-            else if (newValue === null) {
-              currentItem.value = null;
-            }
+          // If the value isn't a primary key, set to null (await input)
+          else if (newValue === null) {
+            currentItem.value = null;
+          }
 
-            // If value is already fullfilled, let's fetch all necessary
-            // fields for display template
-            else if (
-                !currentItem.value &&
-                typeof newValue === 'object' &&
-                newValue[relatedPrimaryKeyField.value!.field]
-            ) {
-              fetchCurrent(newValue[relatedPrimaryKeyField.value!.field]);
-            }
-          },
-          { immediate: true }
+          // If value is already fullfilled, let's fetch all necessary
+          // fields for display template
+          else if (
+            !currentItem.value &&
+            typeof newValue === 'object' &&
+            newValue[relatedPrimaryKeyField.value!.field]
+          ) {
+            fetchCurrent(newValue[relatedPrimaryKeyField.value!.field]);
+          }
+        },
+        { immediate: true }
       );
 
       const currentPrimaryKey = computed(() => {
@@ -184,7 +175,7 @@ export default defineComponent({
         emit('input', item[relatedPrimaryKeyField.value!.field]);
       }
 
-      async function fetchCurrent(key: string|number) {
+      async function fetchCurrent(key: string | number) {
         if (!relatedPrimaryKeyField.value || !relatedCollection.value) return;
 
         loading.value = true;
@@ -197,8 +188,8 @@ export default defineComponent({
 
         try {
           const endpoint = relatedCollection.value.collection.startsWith('directus_')
-              ? `/${relatedCollection.value.collection.substring(9)}/${key}`
-              : `/items/${relatedCollection.value.collection}/${encodeURIComponent(key)}`;
+            ? `/${relatedCollection.value.collection.substring(9)}/${key}`
+            : `/items/${relatedCollection.value.collection}/${encodeURIComponent(key)}`;
 
           const response = await api.get(endpoint, {
             params: {
@@ -242,8 +233,8 @@ export default defineComponent({
 
         try {
           const endpoint = relatedCollection.value.collection.startsWith('directus_')
-              ? `/${relatedCollection.value.collection.substring(9)}`
-              : `/items/${relatedCollection.value.collection}`;
+            ? `/${relatedCollection.value.collection.substring(9)}`
+            : `/items/${relatedCollection.value.collection}`;
 
           const response = await api.get(endpoint, {
             params: {
@@ -265,8 +256,8 @@ export default defineComponent({
         if (!relatedCollection.value) return;
 
         const endpoint = relatedCollection.value.collection.startsWith('directus_')
-            ? `/${relatedCollection.value.collection.substring(9)}`
-            : `/items/${relatedCollection.value.collection}`;
+          ? `/${relatedCollection.value.collection.substring(9)}`
+          : `/items/${relatedCollection.value.collection}`;
 
         const response = await api.get(endpoint, {
           params: {

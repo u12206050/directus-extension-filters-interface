@@ -45,15 +45,15 @@ const innerValue = computed({
 	},
 	set(newVal) {
 		switch (newVal.length) {
-		case 0:
-			emit('input', null);
-			break;
-		case 1:
-			emit('input', newVal[0]);
-			break;
-		default:
-			emit('input', { _and: newVal });
-			break;
+			case 0:
+				emit('input', null);
+				break;
+			case 1:
+				emit('input', newVal[0]);
+				break;
+			default:
+				emit('input', { _and: newVal });
+				break;
 		}
 	},
 });
@@ -141,137 +141,143 @@ function removeNode(ids) {
   
 <template>
 	<v-notice v-if="!tree" type="warning">
-	  Properties not setup correctly!
+		Properties not setup correctly!
 	</v-notice>
-  
-	<div v-else class="system-filter" :class="{ inline, empty: innerValue.length === 0 }">
-	  <v-list :mandatory="true">
-		<div v-if="innerValue.length === 0" class="no-rules">
-		  {{ t('interfaces.filter.no_rules') }}
+
+	<div v-else class="system-filter" :class="{ inline, disabled, empty: innerValue.length === 0 }">
+		<v-list :mandatory="true">
+			<div v-if="innerValue.length === 0" class="no-rules">
+				{{ t('interfaces.filter.no_rules') }}
+			</div>
+			<nodes v-else
+				v-model:filter="innerValue"
+				:depth="1" :tree="tree"
+				:branches="branches"
+				:inline="inline"
+				:disabled="disabled"
+				@remove-node="removeNode($event)"
+				@change="emitValue" />
+		</v-list>
+		<div class="buttons">
+			<v-select
+				:inline="!inline"
+				item-text="name"
+				item-value="key"
+				placement="bottom-start"
+				class="add-filter"
+				:placeholder="t('interfaces.filter.add_filter')"
+				:full-width="inline"
+				:model-value="null"
+				:items="fieldOptions"
+				:mandatory="false"
+				:groups-clickable="true"
+				@update:modelValue="addNode($event)"
+			>
+				<template v-if="inline" #prepend>
+					<v-icon name="add" small />
+				</template>
+			</v-select>
 		</div>
-		<nodes
-			v-else
-			v-model:filter="innerValue"
-			:depth="1"
-			:tree="tree"
-			:branches="branches"
-			@remove-node="removeNode($event)"
-			@change="emitValue"
-		/>
-	  </v-list>
-	  <div class="buttons">
-		<v-select
-			:inline="!inline"
-			item-text="name"
-			item-value="key"
-			placement="bottom-start"
-			class="add-filter"
-			:placeholder="t('interfaces.filter.add_filter')"
-			:full-width="inline"
-			:model-value="null"
-			:items="fieldOptions"
-			:mandatory="false"
-			:groups-clickable="true"
-			@update:modelValue="addNode($event)"
-		>
-		  <template v-if="inline" #prepend>
-			<v-icon name="add" small />
-		  </template>
-		</v-select>
-	  </div>
 	</div>
-  </template>
+</template>
   
-  <style lang="scss" scoped>
-  .system-filter {
+<style lang="scss" scoped>
+.system-filter {
+
 	:deep(ul),
 	:deep(li) {
-	  list-style: none;
+		list-style: none;
 	}
-  
+
 	:deep(.group) {
-	  margin-left: 18px;
-	  padding-left: 10px;
-	  border-left: var(--border-width) solid var(--border-subdued);
+		margin-left: 18px;
+		padding-left: 10px;
+		border-left: var(--border-width) solid var(--border-subdued);
 	}
-  
+
 	.v-list {
-	  margin: 0px 0px 10px;
-	  padding: 20px 20px 12px;
-	  border: var(--border-width) solid var(--border-subdued);
-  
-	  & > :deep(.group) {
-		margin-left: 0px;
-		padding-left: 0px;
-		border-left: none;
-	  }
-	}
-  
-	.buttons {
-	  padding: 0 10px;
-	  font-weight: 600;
-	}
-  
-	&.empty {
-	  .v-list {
-		display: flex;
-		align-items: center;
-		height: var(--input-height);
-		padding-top: 0;
-		padding-bottom: 0;
-	  }
-  
-	  .no-rules {
-		color: var(--foreground-subdued);
-		font-family: var(--family-monospace);
-	  }
-	}
-  
-	.add-filter {
-	  --v-select-placeholder-color: var(--primary);
-	}
-  
-	&.inline {
-	  .v-list {
-		margin: 0;
-		padding: 0;
-		border: 0;
-	  }
-  
-	  &.empty .v-list {
-		display: none;
-	  }
-  
-	  .buttons {
-		margin: 0;
-		padding: 0;
-	  }
-  
-	  .add-filter {
-		width: 100%;
-  
-		:deep(.v-input) {
-		  position: relative;
-		  width: 100%;
-		  height: 30px;
-		  padding: 0;
-		  background-color: var(--background-page);
-		  border: var(--border-width) solid var(--border-subdued);
-		  border-radius: 100px;
-		  transition: border-color var(--fast) var(--transition);
-  
-		  .input {
-			padding-right: 5px;
-			padding-left: 6px;
-			background: transparent;
-			border: 0;
-  
-			.prepend {
-			  margin-right: 4px;
-			}
-		  }
+		margin: 0px 0px 10px;
+		padding: 20px 20px 12px;
+		border: var(--border-width) solid var(--border-subdued);
+
+		&> :deep(.group) {
+			margin-left: 0px;
+			padding-left: 0px;
+			border-left: none;
 		}
-	  }
 	}
-  }
-  </style>
+
+	.buttons {
+		padding: 0 10px;
+		font-weight: 600;
+	}
+
+	&.empty {
+		.v-list {
+			display: flex;
+			align-items: center;
+			height: var(--input-height);
+			padding-top: 0;
+			padding-bottom: 0;
+		}
+
+		.no-rules {
+			color: var(--foreground-subdued);
+			font-family: var(--family-monospace);
+		}
+	}
+
+	.add-filter {
+		--v-select-placeholder-color: var(--primary);
+	}
+
+	&.inline {
+		.v-list {
+			margin: 0;
+			padding: 0;
+			border: 0;
+		}
+
+		&.empty .v-list {
+			display: none;
+		}
+
+		.buttons {
+			margin: 0;
+			padding: 0;
+		}
+
+		.add-filter {
+			width: 100%;
+
+			:deep(.v-input) {
+				position: relative;
+				width: 100%;
+				height: 30px;
+				padding: 0;
+				background-color: var(--background-page);
+				border: var(--border-width) solid var(--border-subdued);
+				border-radius: 100px;
+				transition: border-color var(--fast) var(--transition);
+
+				.input {
+					padding-right: 5px;
+					padding-left: 6px;
+					background: transparent;
+					border: 0;
+
+					.prepend {
+						margin-right: 4px;
+					}
+				}
+			}
+		}
+	}
+
+	&.disabled {
+		.buttons {
+			display: none;
+		}
+	}
+}
+</style>
