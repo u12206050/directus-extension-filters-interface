@@ -89,13 +89,13 @@
 </template>
 
 <script lang="ts" setup>
+import { getFilterOperatorsForType, toArray } from '@directus/utils';
+import { get } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { toArray, getFilterOperatorsForType } from '@directus/shared/utils';
 import Draggable from 'vuedraggable';
-import _get from 'lodash.get';
+import { fieldToFilter, getComparator, getField, getNodeName } from '../utils';
 import InputGroup from './input-group.vue';
-import { fieldToFilter, getField, getNodeName, getComparator } from '../utils';
 
 const { t } = useI18n();
 
@@ -165,7 +165,7 @@ function getFieldPreview(node) {
 
 	const fieldNames = fieldParts.map((fieldKey, index) => {
 		const pathPrefix = fieldParts.slice(0, index);
-		const field = _get(props.tree, [...pathPrefix, fieldKey].join('.'));
+		const field = get(props.tree, [...pathPrefix, fieldKey].join('.'));
 		return field?.name ?? fieldKey;
 	});
 
@@ -205,7 +205,7 @@ function updateComparator(index, operator) {
 	if (nodeInfo.isField === false) return;
 
 	const valuePath = nodeInfo.field + '.' + nodeInfo.comparator;
-	let value = _get(nodeInfo.node, valuePath);
+	let value = get(nodeInfo.node, valuePath);
 
 	switch (operator) {
 		case '_in':
@@ -249,13 +249,13 @@ function updateComparator(index, operator) {
 
 function updateField(index, newField) {
 	const nodeInfo = filterInfo.value[index];
-	const oldFieldInfo = _get(props.tree, nodeInfo.name);
-	const newFieldInfo = _get(props.tree, newField);
+	const oldFieldInfo = get(props.tree, nodeInfo.name);
+	const newFieldInfo = get(props.tree, newField);
 
 	if (nodeInfo.isField === false) return;
 
 	const valuePath = nodeInfo.field + '.' + nodeInfo.comparator;
-	let value = _get(nodeInfo.node, valuePath);
+	let value = get(nodeInfo.node, valuePath);
 	let comparator = nodeInfo.comparator;
 
 	if (oldFieldInfo?.type !== newFieldInfo?.type) {
@@ -277,7 +277,7 @@ function replaceNode(index, newFilter) {
 }
 
 function getCompareOptions(name) {
-	const fieldInfo = _get(props.tree, name);
+	const fieldInfo = get(props.tree, name);
 	if (fieldInfo === null) return [];
 
 	return getFilterOperatorsForType(fieldInfo?.type || 'string').map((type) => ({

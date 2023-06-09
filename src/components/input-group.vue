@@ -1,11 +1,10 @@
 <script setup lang="ts">
+import { clone, get } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import _clone from 'lodash.clone';
-import _get from 'lodash.get';
-import InputComponent from './input-component.vue';
-import { fieldToFilter, getComparator, getField } from '../utils';
 import IntlInfo from "../intl";
+import { fieldToFilter, getComparator, getField } from '../utils';
+import InputComponent from './input-component.vue';
 
 const props = defineProps({
 	field: {
@@ -21,7 +20,7 @@ const { t } = useI18n();
 const emit = defineEmits(['update:field']);
 
 const fieldInfo = computed(() => {
-	return _get(props.tree, getField(props.field));
+	return get(props.tree, getField(props.field));
 });
 
 const continents = { AF: "Africa", AN: "Antarctica", AS: "Asia", EU: "Europe", NA: "North America", OC: "Oceania", SA: "South America" }
@@ -101,7 +100,7 @@ const value = computed({
 		const fieldPath = getField(props.field);
 		const comparator = getComparator(props.field);
 
-		const value = _get(props.field, `${fieldPath}.${comparator}`);
+		const value = get(props.field, `${fieldPath}.${comparator}`);
 		if (['_in', '_nin'].includes(getComparator(props.field))) {
 			return [...(value).filter((val: any) => val !== null && val !== ''), null];
 		} else {
@@ -124,7 +123,7 @@ const value = computed({
 });
 
 function setValueAt(index: number, newVal: any) {
-	let newArray = Array.isArray(value.value) ? _clone(value.value) : new Array(index + 1);
+	let newArray = Array.isArray(value.value) ? clone(value.value) : new Array(index + 1);
 	newArray[index] = newVal;
 	value.value = newArray;
 }

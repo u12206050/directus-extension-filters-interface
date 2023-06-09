@@ -1,10 +1,7 @@
 <script setup lang="ts">
+import { cloneDeep, get, isEmpty, set } from 'lodash-es';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import _get from 'lodash.get';
-import _set from 'lodash.set';
-import _isEmpty from 'lodash.isempty';
-import _cloneDeep from 'lodash.clonedeep';
 import Nodes from './components/nodes.vue';
 import { getNodeName } from './utils';
 
@@ -33,14 +30,14 @@ const { t } = useI18n();
 
 const innerValue = computed({
 	get() {
-		if (!props.value || _isEmpty(props.value)) return [];
+		if (!props.value || isEmpty(props.value)) return [];
 
 		const name = getNodeName(props.value);
 
 		if (name === '_and') {
-			return _cloneDeep(props.value['_and']);
+			return cloneDeep(props.value['_and']);
 		} else {
-			return _cloneDeep([props.value]);
+			return cloneDeep([props.value]);
 		}
 	},
 	set(newVal) {
@@ -72,30 +69,54 @@ const fieldOptions = computed(() => {
 });
 
 function objectToTree(obj, prefix = '') {
+	console.log(obj);
 	return Object.keys(obj).map((k) => {
 		const propValue = obj[k]
+		const key = [prefix, k].filter(s => s).join('.');
 		if (typeof propValue === 'string') {
 			obj[k] = {
 				name: k,
-				type: propValue
+				type: propValue,
 			}
+			if (propValue === 'dateTime' || propValue === 'timestamp') {
+				obj[`year(${k})`] = { name: 'year', type: 'integer' };
+				obj[`month(${k})`] = { name: 'month', type: 'integer' };
+				obj[`day(${k})`] = { name: 'day', type: 'integer' };
+				obj[`hour(${k})`] = { name: 'hour', type: 'integer' };
+				obj[`minute(${k})`] = { name: 'minute', type: 'integer' };
+				obj[`second(${k})`] = { name: 'second', type: 'integer' };
+
+				return {
+					key,
+					name: k,
+					selectable: true,
+					children: [
+						{ key, name: 'raw' },
+						{ key: `year(${k})`, name: 'year' },
+						{ key: `month(${k})`, name: 'month' },
+						{ key: `day(${k})`, name: 'day' },
+						{ key: `hour(${k})`, name: 'hour' },
+						{ key: `minute(${k})`, name: 'minute' },
+						{ key: `second(${k})`, name: 'second' },
+					]
+				}
+			}
+
 			return {
-				key: [prefix, k].filter(s => s).join('.'),
-				name: k,
-				type: propValue
+				key,
+				name: k
 			}
 		}
 
 		if (typeof propValue === 'object') {
 			if (typeof propValue.type === 'string') {
 				return {
-					key: [prefix, k].filter(s => s).join('.'),
+					key,
 					name: propValue.name || k,
-					type: propValue.type || 'string'
 				}
 			} else {
 				return {
-					key: [prefix, k].filter(s => s).join('.'),
+					key,
 					name: k,
 					children: objectToTree(propValue, k)
 				}
@@ -103,7 +124,7 @@ function objectToTree(obj, prefix = '') {
 		}
 
 		return null
-	}).filter(b => !!b)
+	}).filter(Boolean)
 }
 
 function emitValue() {
@@ -118,7 +139,7 @@ function addNode(key) {
 	if (key === '$group') {
 		innerValue.value = innerValue.value.concat({ _and: [] });
 	} else {
-		const node = _set({}, key, { ['_eq']: null });
+		const node = set({}, key, { ['_eq']: null });
 		innerValue.value = innerValue.value.concat(node);
 	}
 }
@@ -131,11 +152,11 @@ function removeNode(ids) {
 		return;
 	}
 
-	let list = _get(innerValue.value, ids.join('.'))
+	let list = get(innerValue.value, ids.join('.'))
 
 	list = list.filter((node, index) => index !== Number(id));
 
-	innerValue.value = _set(innerValue.value, ids.join('.'), list);
+	innerValue.value = set(innerValue.value, ids.join('.'), list);
 }
 </script>
   

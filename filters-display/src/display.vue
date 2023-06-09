@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
 import _isEmpty from 'lodash.isempty';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Nodes from './components/nodes.vue';
-
 
 const props = defineProps({
 	value: {
@@ -22,7 +21,7 @@ const innerValue = computed(() => {
 </script>
   
 <template>
-	<div class="system-filter" :class="{ inline, empty: innerValue.length === 0 }">
+	<div class="system-filter" :class="{ empty: innerValue.length === 0 }">
 		<v-list :mandatory="true">
 			<div v-if="innerValue.length === 0" class="no-rules">
 				{{ t('interfaces.filter.no_rules') }}
@@ -34,7 +33,6 @@ const innerValue = computed(() => {
   
 <style lang="scss" scoped>
 .system-filter {
-
 	:deep(ul),
 	:deep(li) {
 		list-style: none;
