@@ -1,5 +1,5 @@
-import get from 'lodash.get';
 import { Filter } from '@directus/shared/types';
+import { get } from 'lodash-es';
 
 export function getNodeName(node: Filter): string {
 	return Object.keys(node)[0] as string;

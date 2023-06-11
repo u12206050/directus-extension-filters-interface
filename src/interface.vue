@@ -69,7 +69,6 @@ const fieldOptions = computed(() => {
 });
 
 function objectToTree(obj, prefix = '') {
-	console.log(obj);
 	return Object.keys(obj).map((k) => {
 		const propValue = obj[k]
 		const key = [prefix, k].filter(s => s).join('.');

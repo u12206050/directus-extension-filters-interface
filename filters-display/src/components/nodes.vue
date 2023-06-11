@@ -29,10 +29,10 @@
 </template>
 
 <script lang="ts" setup>
+import { get } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import _get from 'lodash.get';
-import { getField, getNodeName, getComparator } from '../utils';
+import { getComparator, getField, getNodeName } from '../utils';
 
 const { t } = useI18n();
 
@@ -98,7 +98,7 @@ function getFieldPreview(node) {
 
 	const fieldNames = fieldParts.map((fieldKey, index) => {
 		const pathPrefix = fieldParts.slice(0, index);
-		const field = _get(props.tree, [...pathPrefix, fieldKey].join('.'));
+		const field = get(props.tree, [...pathPrefix, fieldKey].join('.'));
 		return field?.name ?? fieldKey;
 	});
 
@@ -113,7 +113,7 @@ function getFieldValue(node) {
 	const fieldPath = getField(node);
 	const comparator = getComparator(node);
 
-	let value = _get(node, `${fieldPath}.${comparator}`);
+	let value = get(node, `${fieldPath}.${comparator}`);
 	if (['_in', '_nin'].includes(comparator)) {
 		value = [...(value).filter((val: any) => val !== null && val !== ''), null];
 	}

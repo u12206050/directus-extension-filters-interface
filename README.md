@@ -9,8 +9,8 @@ Using the [Rule Filter Validator](https://github.com/u12206050/rule-filter-valid
 Support for `$NOW` and field functions such as `year()` and `count()` is supported in [Rule Filter Validator](https://github.com/u12206050/rule-filter-validator) since version `1.5.0`
 
 
-
 ## Install
+
 Copy the `index.js` file from the dist folder into your project eg. `PATH_TO_DIRECTUS_PROJECT/extensions/interfaces/filters`
 
 
