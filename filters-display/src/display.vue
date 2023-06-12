@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import _isEmpty from 'lodash.isempty';
+import { isEmpty } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Nodes from './components/nodes.vue';
@@ -14,7 +14,7 @@ const props = defineProps({
 const { t } = useI18n();
 
 const innerValue = computed(() => {
-	if (!props.value || _isEmpty(props.value)) return [];
+	if (!props.value || isEmpty(props.value)) return [];
 
 	return props.value._and ? props.value._and : [props.value];
 });
