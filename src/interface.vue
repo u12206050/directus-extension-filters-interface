@@ -68,22 +68,26 @@ const fieldOptions = computed(() => {
 	return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }, ...(branches.value || [])];
 });
 
+function bool(value) {
+	return !!value;
+}
+
 function objectToTree(obj, prefix = '') {
 	return Object.keys(obj).map((k) => {
 		const propValue = obj[k]
-		const key = [prefix, k].filter(s => s).join('.');
+		const key = [prefix, k].filter(bool).join('.');
 		if (typeof propValue === 'string') {
 			obj[k] = {
 				name: k,
 				type: propValue,
 			}
 			if (propValue === 'dateTime' || propValue === 'timestamp') {
-				obj[`year(${k})`] = { name: 'year', type: 'integer' };
-				obj[`month(${k})`] = { name: 'month', type: 'integer' };
-				obj[`day(${k})`] = { name: 'day', type: 'integer' };
-				obj[`hour(${k})`] = { name: 'hour', type: 'integer' };
-				obj[`minute(${k})`] = { name: 'minute', type: 'integer' };
-				obj[`second(${k})`] = { name: 'second', type: 'integer' };
+				obj[[prefix, `year(${k})`].filter(bool).join('.')] = { name: 'year', type: 'integer' };
+				obj[[prefix, `month(${k})`].filter(bool).join('.')] = { name: 'month', type: 'integer' };
+				obj[[prefix, `day(${k})`].filter(bool).join('.')] = { name: 'day', type: 'integer' };
+				obj[[prefix, `hour(${k})`].filter(bool).join('.')] = { name: 'hour', type: 'integer' };
+				obj[[prefix, `minute(${k})`].filter(bool).join('.')] = { name: 'minute', type: 'integer' };
+				obj[[prefix, `second(${k})`].filter(bool).join('.')] = { name: 'second', type: 'integer' };
 
 				return {
 					key,
@@ -91,12 +95,12 @@ function objectToTree(obj, prefix = '') {
 					selectable: true,
 					children: [
 						{ key, name: 'raw' },
-						{ key: `year(${k})`, name: 'year' },
-						{ key: `month(${k})`, name: 'month' },
-						{ key: `day(${k})`, name: 'day' },
-						{ key: `hour(${k})`, name: 'hour' },
-						{ key: `minute(${k})`, name: 'minute' },
-						{ key: `second(${k})`, name: 'second' },
+						{ key: [prefix, `year(${k})`].filter(bool).join('.'), name: 'year' },
+						{ key: [prefix, `month(${k})`].filter(bool).join('.'), name: 'month' },
+						{ key: [prefix, `day(${k})`].filter(bool).join('.'), name: 'day' },
+						{ key: [prefix, `hour(${k})`].filter(bool).join('.'), name: 'hour' },
+						{ key: [prefix, `minute(${k})`].filter(bool).join('.'), name: 'minute' },
+						{ key: [prefix, `second(${k})`].filter(bool).join('.'), name: 'second' },
 					]
 				}
 			}
