@@ -21,7 +21,17 @@
         </div>
       </template>
 
-      <v-list>
+      <v-list class="auto-width-menu">
+        <v-list-item v-if="listItems.length > 10 || search">
+          <v-list-item-content>
+            <v-input v-model="search" autofocus small :placeholder="t('search')" @click.stop.prevent>
+              <template #append>
+                <v-icon small name="search" />
+              </template>
+            </v-input>
+          </v-list-item-content>
+        </v-list-item>
+      
         <template v-if="itemsLoading">
           <v-list-item v-for="n in 10" :key="`loader-${n}`">
             <v-list-item-content>
@@ -31,7 +41,7 @@
         </template>
 
         <template v-else-if="relatedPrimaryKeyField">
-          <v-list-item v-for="item in items" :key="item[relatedPrimaryKeyField.field]"
+          <v-list-item v-for="item in listItems" :key="item[relatedPrimaryKeyField.field]"
             :active="value === item[relatedPrimaryKeyField.field]" clickable @click="setCurrent(item)">
             <v-list-item-content>
               <render-template :collection="relatedCollection.collection" :template="displayTemplate" :item="item" />
@@ -44,9 +54,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, toRefs, watch } from 'vue';
+import { getFieldsFromTemplate, useApi, useCollection, useStores } from '@directus/extensions-sdk';
+import { debounce } from 'lodash-es';
+import { computed, defineComponent, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useApi, useStores, useCollection, getFieldsFromTemplate } from '@directus/extensions-sdk';
 
 export default defineComponent({
   props: {
@@ -97,12 +108,42 @@ export default defineComponent({
 
     const menuActive = ref(false);
 
+    const search = ref<string | null>(null);
+    const internalSearch = ref<string | null>(null);
+    const listItems = computed(() => {
+      let result = items.value;
+      if (!result) return [];
+      const sortedField = requiredFields.value?.[0] || relatedPrimaryKeyField.value?.field || 'id';
+      result.sort((a, b) => a[sortedField].localeCompare(b[sortedField]));
+      if (internalSearch.value) {
+        const iSearch = internalSearch.value.toLowerCase();
+        const fields = requiredFields.value || [];
+        result = result.filter((item) => {
+          for (const field of fields) {
+            if (item[field].toString().toLowerCase().includes(iSearch)) {
+              return true;
+            }
+          }
+          return false;
+        });
+      }
+
+      return result;
+    })
+    watch(
+      search,
+      debounce((val: string | null) => {
+        internalSearch.value = val;
+      }, 250)
+    );
+
     return {
       t,
       collectionInfo,
       currentItem,
       displayTemplate,
-      items,
+      search,
+      listItems,
       itemsLoading,
       loadingCurrent,
       menuActive,
@@ -209,7 +250,7 @@ export default defineComponent({
     function useItems() {
       const totalCount = ref(null);
 
-      const items = ref(null);
+      const items = ref<null | Array<Record<string, any>>>(null);
       const loading = ref(false);
 
       watch(relatedCollection, () => {
@@ -383,5 +424,11 @@ export default defineComponent({
 
 .deselect:hover {
   --v-icon-color: var(--danger);
+}
+</style>
+
+<style>
+.v-menu-content:has(> .auto-width-menu) {
+  width: min-content;
 }
 </style>
