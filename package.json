@@ -13,7 +13,7 @@
 		"type": "interface",
 		"path": "dist/index.js",
 		"source": "src/index.ts",
-		"host": "9.26.0"
+		"host": "^9.26.0"
 	},
 	"scripts": {
 		"build": "directus-extension build",
@@ -23,7 +23,7 @@
 		"@directus/extensions-sdk": "9.26",
 		"@directus/utils": "^9.26.0",
 		"@types/lodash-es": "^4.17.7",
-		"rule-filter-validator": "^1.5.2",
+		"rule-filter-validator": "^1.5.5",
 		"sass": "^1.56.1",
 		"typescript": "^5.0.4",
 		"vue": "^3.2.45",
