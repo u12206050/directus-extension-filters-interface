@@ -12,7 +12,7 @@
               <render-template :collection="relatedCollection.collection" :item="currentItem"
                 :template="displayTemplate" />
             </div>
-            <v-icon v-tooltip="t('deselect')" name="close" class="deselect" @click.stop="$emit('input', null)" />
+            <v-icon v-tooltip="t('deselect')" name="close" small class="deselect" @click.stop="$emit('input', null)" />
           </template>
           <template v-else>
             <p class="preview" style="width: 120px">{{ t('select_an_item') }}</p>

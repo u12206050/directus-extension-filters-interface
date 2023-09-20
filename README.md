@@ -71,7 +71,7 @@ type RelationProp = {
     "person": {
         "id": "integer",
         "age": "integer",
-        "dob": "dateTime",
+        "dob": "dateTime", // Will allow for selecting year, month, day, minute and second
         "active": "boolean",
         "gender": {
             "type": "string",

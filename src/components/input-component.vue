@@ -23,7 +23,8 @@
 		v-bind="inputProps"
 		:model-value="value"
 		:placeholder="t('select')"
-		allow-other
+		allowOther
+		showDeselect
 		@update:model-value="emitValue($event)"
 	/>
 	<select-dropdown-m2o v-else-if="is === 'interface-select-dropdown-m2o'"
@@ -31,24 +32,62 @@
 		:value="value"
 		@input="emitValue($event)"
 	/>
+	<template v-else-if="is === 'interface-datetime'">
+		<input
+			ref="inputEl"
+			type="text"
+			:pattern="inputPattern"
+			:value="value"
+			:style="{ width }"
+			placeholder="--"
+			@input="emitValue(($event.target).value)"
+		/>
+		<v-menu
+			ref="dateTimeMenu"
+			:close-on-content-click="false"
+			:show-arrow="true"
+			placement="bottom-start"
+			seamless
+			full-height
+		>
+			<template #activator="{ toggle }">
+				<v-icon class="preview" name="event" small @click="toggle" />
+			</template>
+			<div class="date-input">
+				<v-date-picker
+					:type="type"
+					:model-value="value"
+					@update:model-value="emitValue"
+					@close="dateTimeMenu?.deactivate"
+				/>
+			</div>
+		</v-menu>
+	</template>
 	<v-menu v-else :close-on-content-click="false" :show-arrow="true" placement="bottom-start">
 		<template #activator="{ toggle }">
-			<v-icon v-if="type.startsWith('geometry') || type === 'json'"
+			<v-icon 
+				v-if="type.startsWith('geometry') || type === 'json'"
 				class="preview"
 				:name="type === 'json' ? 'integration_instructions' : 'map'"
 				@click="toggle"
 			/>
-			<div v-else class="preview" @click="toggle">{{ displayValue }}</div>
+			<div v-else class="preview" @click="toggle">{{ displayValue }} - {{ is }}</div>
 		</template>
 		<div class="input" :class="type">
-			<component :is="is" v-bind="inputProps" class="input-component" small :type="type" :value="value"
-				@input="emitValue($event)" />
+			<component
+				:is="is"
+				v-bind="inputProps"
+				class="input-component" small 
+				:type="type"
+				:value="value"
+				@input="emitValue($event)" 
+			/>
 		</div>
 	</v-menu>
 </template>
 
 <script>
-import { computed, defineComponent, ref, onMounted } from 'vue';
+import { computed, defineComponent, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SelectDropdownM2o from "./select-dropdown-m2o.vue";
 
@@ -112,7 +151,9 @@ export default defineComponent({
 			if (props.focus) inputEl.value?.focus();
 		});
 
-		return { displayValue, width, t, emitValue, inputEl, inputPattern };
+		const dateTimeMenu = ref();
+
+		return { dateTimeMenu, displayValue, width, t, emitValue, inputEl, inputPattern };
 
 		function emitValue(val) {
 			if (val === '') {
@@ -185,5 +226,10 @@ input {
 .dialog {
 	position: relative;
 	min-width: 800px;
+}
+
+.date-input {
+	min-width: 380px;
+	max-width: 95vw;
 }
 </style>

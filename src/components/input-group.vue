@@ -64,7 +64,6 @@ const fieldInterface = computed(() => {
 		if (typeof items === 'string') {
 			switch (items) {
 				case '$COUNTRIES':
-
 					items = Object.entries(countries).map(([k, v]) => ({
 						text: v,
 						value: k

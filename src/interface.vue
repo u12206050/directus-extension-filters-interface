@@ -68,40 +68,33 @@ const fieldOptions = computed(() => {
 	return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }, ...(branches.value || [])];
 });
 
-function bool(value) {
-	return !!value;
-}
-
 function objectToTree(obj, prefix = '') {
 	return Object.keys(obj).map((k) => {
 		const propValue = obj[k]
-		const key = [prefix, k].filter(bool).join('.');
+		const key = [prefix, k].filter(Boolean).join('.');
 		if (typeof propValue === 'string') {
 			obj[k] = {
 				name: k,
 				type: propValue,
 			}
 			if (propValue === 'dateTime' || propValue === 'timestamp') {
-				obj[[prefix, `year(${k})`].filter(bool).join('.')] = { name: 'year', type: 'integer' };
-				obj[[prefix, `month(${k})`].filter(bool).join('.')] = { name: 'month', type: 'integer' };
-				obj[[prefix, `day(${k})`].filter(bool).join('.')] = { name: 'day', type: 'integer' };
-				obj[[prefix, `hour(${k})`].filter(bool).join('.')] = { name: 'hour', type: 'integer' };
-				obj[[prefix, `minute(${k})`].filter(bool).join('.')] = { name: 'minute', type: 'integer' };
-				obj[[prefix, `second(${k})`].filter(bool).join('.')] = { name: 'second', type: 'integer' };
+				const intervals = ['year', 'month', 'day', 'hour', 'minute', 'second'];
+				const children = [
+					{ key, name: 'raw' },
+				];
+
+				intervals.forEach((interval) => {
+					const fn = `${interval}(${k})`
+					const key = [prefix, fn].filter(Boolean).join('.');
+					obj[fn] = { key, name: interval, type: 'integer' };
+					children.push(obj[fn]);
+				});
 
 				return {
 					key,
 					name: k,
 					selectable: true,
-					children: [
-						{ key, name: 'raw' },
-						{ key: [prefix, `year(${k})`].filter(bool).join('.'), name: 'year' },
-						{ key: [prefix, `month(${k})`].filter(bool).join('.'), name: 'month' },
-						{ key: [prefix, `day(${k})`].filter(bool).join('.'), name: 'day' },
-						{ key: [prefix, `hour(${k})`].filter(bool).join('.'), name: 'hour' },
-						{ key: [prefix, `minute(${k})`].filter(bool).join('.'), name: 'minute' },
-						{ key: [prefix, `second(${k})`].filter(bool).join('.'), name: 'second' },
-					]
+					children,
 				}
 			}
 
