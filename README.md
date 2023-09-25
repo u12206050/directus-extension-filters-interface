@@ -11,6 +11,10 @@ Support for `$NOW` and field functions such as `year()` and `count()` is support
 
 ## Install
 
+`npm install directus-extension-filters-interface`
+
+OR
+
 Copy the `index.js` file from the dist folder into your project eg. `PATH_TO_DIRECTUS_PROJECT/extensions/interfaces/filters`
 
 
