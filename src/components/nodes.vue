@@ -118,9 +118,9 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
-})
+});
 
-const emit = defineEmits(['remove-node', 'update:filter', 'change'])
+const emit = defineEmits(['remove-node', 'update:filter', 'change']);
 
 const filterSync = computed({
 	get() {
@@ -131,7 +131,6 @@ const filterSync = computed({
 	},
 });
 
-
 const filterInfo = computed({
 	get() {
 		return props.filter.map((node, id) => {
@@ -140,20 +139,20 @@ const filterInfo = computed({
 
 			return isField
 				? {
-					id,
-					isField,
-					name,
-					field: getField(node),
-					comparator: getComparator(node),
-					node,
-				}
+						id,
+						isField,
+						name,
+						field: getField(node),
+						comparator: getComparator(node),
+						node,
+				  }
 				: { id, name, isField, node };
 		});
 	},
 	set(newVal) {
 		emit(
 			'update:filter',
-			newVal.map((val) => val.node)
+			newVal.map(val => val.node)
 		);
 	},
 });
@@ -173,7 +172,7 @@ function getFieldPreview(node) {
 }
 
 function getIndex(item) {
-	return props.filter.findIndex((filter) => filter === item);
+	return props.filter.findIndex(filter => filter === item);
 }
 
 function toggleLogic(index) {
@@ -184,7 +183,7 @@ function toggleLogic(index) {
 	if ('_and' in nodeInfo.node) {
 		filterSync.value = filterSync.value.map((filter, filterIndex) => {
 			if (filterIndex === index) {
-				return { _or: (nodeInfo.node)._and };
+				return { _or: nodeInfo.node._and };
 			}
 
 			return filter;
@@ -192,7 +191,7 @@ function toggleLogic(index) {
 	} else {
 		filterSync.value = filterSync.value.map((filter, filterIndex) => {
 			if (filterIndex === index) {
-				return { _and: (nodeInfo.node)._or };
+				return { _and: nodeInfo.node._or };
 			}
 
 			return filter;
@@ -280,7 +279,7 @@ function getCompareOptions(name) {
 	const fieldInfo = get(props.tree, name);
 	if (!fieldInfo) return [];
 
-	return getFilterOperatorsForType(fieldInfo.type || 'string').map((type) => ({
+	return getFilterOperatorsForType(fieldInfo.type || 'string').map(type => ({
 		text: t(`operators.${type}`),
 		value: `_${type}`,
 	}));
@@ -416,7 +415,6 @@ function getCompareOptions(name) {
 }
 
 .row.disabled {
-
 	.drag-handle,
 	.delete {
 		display: none;
@@ -428,7 +426,7 @@ function getCompareOptions(name) {
 		background-color: var(--primary-alt);
 		border-color: var(--primary);
 
-		>* {
+		> * {
 			opacity: 0;
 		}
 	}

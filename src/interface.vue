@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { cloneDeep, get, isEmpty, set } from 'lodash-es';
-import { computed, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import Nodes from './components/nodes.vue';
-import { getNodeName } from './utils';
-
+import { cloneDeep, get, isEmpty, set } from "lodash-es";
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import Nodes from "./components/nodes.vue";
+import { getNodeName } from "./utils";
 
 const props = defineProps({
 	value: {
@@ -23,9 +22,9 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
-})
+});
 
-const emit = defineEmits(['input'])
+const emit = defineEmits(['input']);
 const { t } = useI18n();
 
 const innerValue = computed({
@@ -55,13 +54,13 @@ const innerValue = computed({
 	},
 });
 
-const tree = ref<any>(null)
-const branches = ref<Array<any>>([])
+const tree = ref<any>(null);
+const branches = ref<Array<any>>([]);
 try {
-	tree.value = typeof props.properties === 'string' ? JSON.parse(props.properties) : props.properties
-	branches.value = objectToTree(tree.value)
+	tree.value = typeof props.properties === 'string' ? JSON.parse(props.properties) : props.properties;
+	branches.value = objectToTree(tree.value);
 } catch (e) {
-	console.error(e)
+	console.error(e);
 }
 
 const fieldOptions = computed(() => {
@@ -69,58 +68,64 @@ const fieldOptions = computed(() => {
 });
 
 function objectToTree(obj, prefix = '') {
-	return Object.keys(obj).map((k) => {
-		const propValue = obj[k]
-		const key = [prefix, k].filter(Boolean).join('.');
-		if (typeof propValue === 'string') {
-			obj[k] = {
-				name: k,
-				type: propValue,
-			}
-			if (propValue === 'dateTime' || propValue === 'timestamp') {
-				const intervals = ['year', 'month', 'day', 'hour', 'minute', 'second'];
-				const children = [
-					{ key, name: 'raw' },
-				];
+	return Object.keys(obj)
+		.map(k => {
+			const propValue = obj[k];
+			const key = [prefix, k].filter(Boolean).join('.');
+			if (typeof propValue === 'string') {
+				obj[k] = {
+					name: k,
+					type: propValue,
+				};
+				if (propValue === 'dateTime' || propValue === 'timestamp') {
+					const intervals = ['year', 'month', 'day', 'hour', 'minute', 'second'];
+					const children = [{ key, name: 'raw' }];
 
-				intervals.forEach((interval) => {
-					const fn = `${interval}(${k})`
-					const key = [prefix, fn].filter(Boolean).join('.');
-					obj[fn] = { key, name: interval, type: 'integer' };
-					children.push(obj[fn]);
-				});
+					intervals.forEach(interval => {
+						const fn = `${interval}(${k})`;
+						const key = [prefix, fn].filter(Boolean).join('.');
+						obj[fn] = { key, name: interval, type: 'integer' };
+						children.push(obj[fn]);
+					});
+
+					return {
+						key,
+						name: k,
+						selectable: true,
+						children,
+					};
+				}
 
 				return {
 					key,
 					name: k,
-					selectable: true,
-					children,
+				};
+			}
+
+			if (typeof propValue === 'object') {
+				if (typeof propValue.type === 'string') {
+					return {
+						key,
+						name: propValue.name || k,
+					};
+				} else {
+					return {
+						key,
+						name: k,
+						children: objectToTree(propValue, k),
+					};
 				}
 			}
 
-			return {
-				key,
-				name: k
-			}
-		}
-
-		if (typeof propValue === 'object') {
-			if (typeof propValue.type === 'string') {
-				return {
-					key,
-					name: propValue.name || k,
-				}
-			} else {
-				return {
-					key,
-					name: k,
-					children: objectToTree(propValue, k)
-				}
-			}
-		}
-
-		return null
-	}).filter(Boolean)
+			return null;
+		})
+		.filter(Boolean) as Array<{
+		name: string;
+		key: string;
+		selectable?: boolean;
+		type?: string;
+		children?: Array<any>;
+	}>;
 }
 
 function emitValue() {
@@ -148,32 +153,33 @@ function removeNode(ids) {
 		return;
 	}
 
-	let list = get(innerValue.value, ids.join('.'))
+	let list = get(innerValue.value, ids.join('.'));
 
 	list = list.filter((node, index) => index !== Number(id));
 
 	innerValue.value = set(innerValue.value, ids.join('.'), list);
 }
 </script>
-  
+
 <template>
-	<v-notice v-if="!tree" type="warning">
-		Properties not setup correctly!
-	</v-notice>
+	<v-notice v-if="!tree" type="warning"> Properties not setup correctly! </v-notice>
 
 	<div v-else class="system-filter" :class="{ inline, disabled, empty: innerValue.length === 0 }">
 		<v-list :mandatory="true">
 			<div v-if="innerValue.length === 0" class="no-rules">
 				{{ t('interfaces.filter.no_rules') }}
 			</div>
-			<nodes v-else
+			<nodes
+				v-else
 				v-model:filter="innerValue"
-				:depth="1" :tree="tree"
+				:depth="1"
+				:tree="tree"
 				:branches="branches"
 				:inline="inline"
 				:disabled="disabled"
 				@remove-node="removeNode($event)"
-				@change="emitValue" />
+				@change="emitValue"
+			/>
 		</v-list>
 		<div class="buttons">
 			<v-select
@@ -197,10 +203,9 @@ function removeNode(ids) {
 		</div>
 	</div>
 </template>
-  
+
 <style lang="scss" scoped>
 .system-filter {
-
 	:deep(ul),
 	:deep(li) {
 		list-style: none;
@@ -217,7 +222,7 @@ function removeNode(ids) {
 		padding: 20px 20px 12px;
 		border: var(--border-width) solid var(--border-subdued);
 
-		&> :deep(.group) {
+		& > :deep(.group) {
 			margin-left: 0px;
 			padding-left: 0px;
 			border-left: none;

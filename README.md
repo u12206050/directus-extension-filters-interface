@@ -18,15 +18,6 @@ OR
 Copy the `index.js` file from the dist folder into your project eg. `PATH_TO_DIRECTUS_PROJECT/extensions/interfaces/filters`
 
 
-## Develop
-
- - Clone repo
- - `npm install`
- - Update the path in package.json from `dist/index.js` to 
-    `PATH_TO_DIRECTUS_PROJECT/extensions/interfaces/filters`
- - `npm run dev`
-
-
 ### Config
 
 When setting up you as the developer should add the properties that can be chosen
@@ -65,7 +56,13 @@ type RelationProp = {
             "field": "id",
             "template": "{{name}}",
             "interface": "select-dropdown-m2o",
-            "collection": "organizations"
+            "collection": "organizations",
+            "filter": {
+                "country": {
+                    /* It supports getting top level values from the current item */
+                    "_eq": "$CURRENT_ITEM.country"
+                }
+            }
         },
         "country": {
             "type": "string",
@@ -93,3 +90,14 @@ type RelationProp = {
     }
 }
 ```
+
+
+## Develop
+
+ - Clone repo
+ - `npm install`
+ - Update the path in package.json from `dist/index.js` to 
+    `PATH_TO_DIRECTUS_PROJECT/extensions/interfaces/filters`
+ - `npm run dev`
+
+ PRs are welcome

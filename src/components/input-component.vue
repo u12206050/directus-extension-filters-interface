@@ -27,7 +27,8 @@
 		showDeselect
 		@update:model-value="emitValue($event)"
 	/>
-	<select-dropdown-m2o v-else-if="is === 'interface-select-dropdown-m2o'"
+	<select-dropdown-m2o
+		v-else-if="is === 'interface-select-dropdown-m2o'"
 		v-bind="inputProps"
 		:value="value"
 		@input="emitValue($event)"
@@ -40,7 +41,7 @@
 			:value="value"
 			:style="{ width }"
 			placeholder="--"
-			@input="emitValue(($event.target).value)"
+			@input="emitValue($event.target.value)"
 		/>
 		<v-menu
 			ref="dateTimeMenu"
@@ -65,7 +66,7 @@
 	</template>
 	<v-menu v-else :close-on-content-click="false" :show-arrow="true" placement="bottom-start">
 		<template #activator="{ toggle }">
-			<v-icon 
+			<v-icon
 				v-if="type.startsWith('geometry') || type === 'json'"
 				class="preview"
 				:name="type === 'json' ? 'integration_instructions' : 'map'"
@@ -77,10 +78,11 @@
 			<component
 				:is="is"
 				v-bind="inputProps"
-				class="input-component" small 
+				class="input-component"
+				small
 				:type="type"
 				:value="value"
-				@input="emitValue($event)" 
+				@input="emitValue($event)"
 			/>
 		</div>
 	</v-menu>
@@ -89,7 +91,7 @@
 <script>
 import { computed, defineComponent, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import SelectDropdownM2o from "./select-dropdown-m2o.vue";
+import SelectDropdownM2o from './select-dropdown-m2o.vue';
 
 export default defineComponent({
 	components: { SelectDropdownM2o },
@@ -162,7 +164,7 @@ export default defineComponent({
 
 			if (
 				typeof val === 'string' &&
-				['$NOW', '$CURRENT_USER', '$CURRENT_ROLE'].some((prefix) => val.startsWith(prefix))
+				['$NOW', '$CURRENT_USER', '$CURRENT_ROLE'].some(prefix => val.startsWith(prefix))
 			) {
 				return emit('input', val);
 			}
