@@ -292,7 +292,7 @@ export default defineComponent({
 					const response = await api.get(endpoint, {
 						params: {
 							fields: fields,
-							filter: parseFilter(props.filter, values.value),
+							filter: parseFilter(props.filter, values ? values.value : {}),
 							limit: -1,
 						},
 					});
