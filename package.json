@@ -1,6 +1,6 @@
 {
 	"name": "directus-extension-filters-interface",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"author": {
 		"name": "Gerard Lamusse"
 	},

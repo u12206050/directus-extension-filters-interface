@@ -68,9 +68,6 @@ import { computed, defineComponent, inject, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { parseFilter } from '../parseFilter';
 
-// Other values on current form item
-const values = inject('values', ref<Record<string, any>>({}));
-
 export default defineComponent({
 	props: {
 		value: {
@@ -109,6 +106,9 @@ export default defineComponent({
 		const { collection } = toRefs(props);
 
 		const collectionsStore = useCollectionsStore();
+
+		// Other values on current form item
+		const values = inject('values', ref<Record<string, any>>({}));
 
 		const { relatedCollection, relatedPrimaryKeyField } = useRelation();
 		const { info: collectionInfo } = useCollection(collection);
