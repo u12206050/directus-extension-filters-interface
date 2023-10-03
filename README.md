@@ -1,6 +1,6 @@
-# Custom filter & rule Interface - for Directus 9
+# Custom filter & rule Interface - for Directus 9&10
 
-This is a custom filter & rule interface for Directus 9. It allows you to setup an interface with defined properties that users can then select and add values and conditions for.
+This is a custom filter & rule interface for Directus 9&10. It allows you to setup an interface with defined properties that users can then select and add values and conditions for.
 
 ![preview](./preview.png)
 
@@ -20,7 +20,7 @@ Copy the `index.js` file from the dist folder into your project eg. `PATH_TO_DIR
 
 ### Config
 
-When setting up you as the developer should add the properties that can be chosen
+When setting up you as the developer should add the properties that can be chosen according to the following schema:
 
 ``` ts
 type Properties = {

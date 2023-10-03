@@ -112,7 +112,7 @@ function objectToTree(obj, prefix = '') {
 					return {
 						key,
 						name: k,
-						children: objectToTree(propValue, k),
+						children: objectToTree(propValue, key),
 					};
 				}
 			}
@@ -120,12 +120,12 @@ function objectToTree(obj, prefix = '') {
 			return null;
 		})
 		.filter(Boolean) as Array<{
-		name: string;
-		key: string;
-		selectable?: boolean;
-		type?: string;
-		children?: Array<any>;
-	}>;
+			name: string;
+			key: string;
+			selectable?: boolean;
+			type?: string;
+			children?: Array<any>;
+		}>;
 }
 
 function emitValue() {
