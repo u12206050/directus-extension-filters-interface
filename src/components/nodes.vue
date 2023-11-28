@@ -15,7 +15,7 @@
 		<template #item="{ element, index }">
 			<li class="row" :class="{ disabled }">
 				<div v-if="filterInfo[index].isField" block class="node field">
-					<div class="header" :class="{ inline }">
+					<div class="node-content" :class="{ inline }">
 						<v-icon name="drag_indicator" class="drag-handle" small></v-icon>
 						<v-select
 							inline
@@ -54,7 +54,7 @@
 				</div>
 
 				<div v-else class="node logic">
-					<div class="header" :class="{ inline }">
+					<div class="node-content" :class="{ inline }">
 						<v-icon name="drag_indicator" class="drag-handle" small />
 						<div class="logic-type" :class="{ or: filterInfo[index].name === '_or' }">
 							<span class="key" @click="toggleLogic(index)">
@@ -287,7 +287,7 @@ function getCompareOptions(name) {
 </script>
 
 <style lang="scss" scoped>
-.header {
+.node-content {
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -296,35 +296,36 @@ function getCompareOptions(name) {
 	margin-bottom: 8px;
 	padding: 2px 6px;
 	padding-right: 8px;
-	background-color: var(--background-page);
-	border: var(--border-width) solid var(--border-subdued);
+	background-color: var(--filter-background);
+	border: var(--filter-border-width) solid var(--filter-border-color);
 	border-radius: 100px;
 	transition: border-color var(--fast) var(--transition);
 
 	.logic-type {
-		color: var(--foreground-subdued);
+		color: var(--filter-subdued);
 
 		.key {
 			margin-right: 4px;
 			padding: 2px 6px;
-			color: var(--primary);
-			background-color: var(--primary-alt);
 			border-radius: 6px;
 			cursor: pointer;
 			transition: var(--fast) var(--transition);
 			transition-property: color, background-color;
 
+			color: var(--blue-125);
+			background-color: var(--blue-10);
+
 			&:hover {
-				background-color: var(--primary-25);
+				background-color: var(--blue-25);
 			}
 		}
 
 		&.or .key {
-			color: var(--secondary);
-			background-color: var(--secondary-alt);
+			color: var(--orange-125);
+			background-color: var(--orange-10);
 
 			&:hover {
-				background-color: var(--secondary-25);
+				background-color: var(--orange-25);
 			}
 		}
 	}
@@ -351,7 +352,7 @@ function getCompareOptions(name) {
 			z-index: -1;
 			width: calc(100% + 8px);
 			height: 100%;
-			background-color: var(--background-normal);
+			background-color: var(--filter-background);
 			border-radius: 6px;
 			opacity: 0;
 			transition: opacity var(--fast) var(--transition);
@@ -373,7 +374,7 @@ function getCompareOptions(name) {
 	}
 
 	.delete {
-		--v-icon-color: var(--foreground-subdued);
+		--v-icon-color: var(--filter-subdued);
 		--v-icon-color-hover: var(--danger);
 
 		position: absolute;
@@ -386,7 +387,7 @@ function getCompareOptions(name) {
 	}
 
 	&:hover {
-		border-color: var(--border-normal);
+		border-color: var(--filter-border--hover);
 
 		.delete,
 		&:hover {
@@ -395,7 +396,7 @@ function getCompareOptions(name) {
 	}
 
 	.drag-handle {
-		--v-icon-color: var(--foreground-subdued);
+		--v-icon-color: var(--filter-subdued);
 
 		margin-right: 4px;
 		cursor: grab;
@@ -409,7 +410,7 @@ function getCompareOptions(name) {
 		.delete {
 			right: 8px;
 			left: unset;
-			background-color: var(--background-page);
+			background-color: var(--filter-background);
 		}
 	}
 }
@@ -422,7 +423,7 @@ function getCompareOptions(name) {
 }
 
 .group :deep(.sortable-ghost) {
-	.node .header {
+	.node .node-content {
 		background-color: var(--primary-alt);
 		border-color: var(--primary);
 

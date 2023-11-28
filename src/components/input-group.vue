@@ -184,7 +184,7 @@ function setValueAt(index: number, newVal: any) {
 	.v-icon {
 		margin-right: 8px;
 		margin-left: 12px;
-		color: var(--foreground-subdued);
+		color: var(--filter-subdued);
 		cursor: pointer;
 
 		&:hover {

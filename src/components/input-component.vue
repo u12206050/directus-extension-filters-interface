@@ -189,7 +189,7 @@ export default defineComponent({
 
 	&:empty {
 		&::after {
-			color: var(--foreground-subdued);
+			color: var(--filter-subdued);
 			content: '--';
 		}
 	}
@@ -219,7 +219,7 @@ input {
 	border: none;
 
 	&::placeholder {
-		color: var(--foreground-subdued);
+		color: var(--filter-subdued);
 		font-weight: 500;
 		font-family: var(--family-monospace);
 	}

@@ -164,13 +164,34 @@ function removeNode(ids) {
 <template>
 	<v-notice v-if="!tree" type="warning"> Properties not setup correctly! </v-notice>
 
-	<div v-else class="system-filter" :class="{ inline, disabled, empty: innerValue.length === 0 }">
-		<v-list :mandatory="true">
-			<div v-if="innerValue.length === 0" class="no-rules">
-				{{ t('interfaces.filter.no_rules') }}
+	<div v-else class="rules-filter-interface" :class="{ inline, disabled, empty: innerValue.length === 0 }">
+		<v-notice v-if="innerValue.length === 0" type="info">
+			{{ t('interfaces.filter.no_rules') }}
+
+			<div class="buttons">
+				<v-select
+					:inline="!inline"
+					item-text="name"
+					item-value="key"
+					placement="bottom-start"
+					class="add-filter"
+					:placeholder="t('interfaces.filter.add_filter')"
+					:full-width="inline"
+					:model-value="null"
+					:items="fieldOptions"
+					:mandatory="false"
+					:groups-clickable="true"
+					@update:modelValue="addNode($event)"
+				>
+					<template v-if="inline" #prepend>
+						<v-icon name="add" small />
+					</template>
+				</v-select>
 			</div>
+		</v-notice>
+		
+		<v-list v-else :mandatory="true">			
 			<nodes
-				v-else
 				v-model:filter="innerValue"
 				:depth="1"
 				:tree="tree"
@@ -180,32 +201,47 @@ function removeNode(ids) {
 				@remove-node="removeNode($event)"
 				@change="emitValue"
 			/>
+			<div class="buttons">
+				<v-select
+					:inline="!inline"
+					item-text="name"
+					item-value="key"
+					placement="bottom-start"
+					class="add-filter"
+					:placeholder="t('interfaces.filter.add_filter')"
+					:full-width="inline"
+					:model-value="null"
+					:items="fieldOptions"
+					:mandatory="false"
+					:groups-clickable="true"
+					@update:modelValue="addNode($event)"
+				>
+					<template v-if="inline" #prepend>
+						<v-icon name="add" small />
+					</template>
+				</v-select>
+			</div>
 		</v-list>
-		<div class="buttons">
-			<v-select
-				:inline="!inline"
-				item-text="name"
-				item-value="key"
-				placement="bottom-start"
-				class="add-filter"
-				:placeholder="t('interfaces.filter.add_filter')"
-				:full-width="inline"
-				:model-value="null"
-				:items="fieldOptions"
-				:mandatory="false"
-				:groups-clickable="true"
-				@update:modelValue="addNode($event)"
-			>
-				<template v-if="inline" #prepend>
-					<v-icon name="add" small />
-				</template>
-			</v-select>
-		</div>
 	</div>
 </template>
 
+<style>
+.v-list.list {
+	--v-list-min-width: 148px;
+}
+.rules-filter-interface {
+	--filter-background: var(--theme--background);
+	--filter-color: var(--theme--foreground);
+	--filter-subdued: var(--theme--foreground-subdued);
+	--filter-border-width: var(--theme--border-width);
+	--filter-border-color: var(--theme--form--field--input--border-color);
+	--filter-border--hover: var(--theme--form--field--input--border-color-hover);
+	--filter-padding: var(--theme--form--field--input--padding, 8px);
+}
+</style>
+
 <style lang="scss" scoped>
-.system-filter {
+.rules-filter-interface {
 	:deep(ul),
 	:deep(li) {
 		list-style: none;
@@ -214,13 +250,13 @@ function removeNode(ids) {
 	:deep(.group) {
 		margin-left: 18px;
 		padding-left: 10px;
-		border-left: var(--border-width) solid var(--border-subdued);
+		border-left: var(--filter-border-width) solid var(--filter-border-color);
 	}
 
 	.v-list {
 		margin: 0px 0px 10px;
-		padding: 20px 20px 12px;
-		border: var(--border-width) solid var(--border-subdued);
+		padding: var(--filter-padding);
+		border: var(--filter-border-width) solid var(--filter-border-color);
 
 		& > :deep(.group) {
 			margin-left: 0px;
@@ -232,21 +268,6 @@ function removeNode(ids) {
 	.buttons {
 		padding: 0 10px;
 		font-weight: 600;
-	}
-
-	&.empty {
-		.v-list {
-			display: flex;
-			align-items: center;
-			height: var(--input-height);
-			padding-top: 0;
-			padding-bottom: 0;
-		}
-
-		.no-rules {
-			color: var(--foreground-subdued);
-			font-family: var(--family-monospace);
-		}
 	}
 
 	.add-filter {
@@ -277,8 +298,9 @@ function removeNode(ids) {
 				width: 100%;
 				height: 30px;
 				padding: 0;
-				background-color: var(--background-page);
-				border: var(--border-width) solid var(--border-subdued);
+				background-color: var(--theme--background);
+				color: var(--theme--forground);
+				border: var(--filter-border-width) solid var(--filter-border-color);
 				border-radius: 100px;
 				transition: border-color var(--fast) var(--transition);
 

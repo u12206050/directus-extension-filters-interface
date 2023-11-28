@@ -1,7 +1,7 @@
-import { defineInterface } from '@directus/extensions-sdk';
+import { InterfaceConfig } from '@directus/types';
 import InterfaceComponent from './interface.vue';
 
-export default defineInterface({
+const config: InterfaceConfig = {
 	id: 'filters',
 	name: 'Filters&Rules',
 	description: 'A filter interface for creating rules on given properties',
@@ -57,4 +57,6 @@ export default defineInterface({
 			},
 		},
 	],
-});
+};
+
+export default config;
