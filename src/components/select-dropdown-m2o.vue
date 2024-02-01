@@ -114,7 +114,7 @@ export default defineComponent({
 		const { info: collectionInfo } = useCollection(collection);
 		const { selection, stageSelection } = useSelection();
 		const { displayTemplate, onPreviewClick, requiredFields } = usePreview();
-		const { totalCount, loading: itemsLoading, fetchItems, items } = useItems();
+		const { loading: itemsLoading, fetchItems, items } = useItems();
 
 		const { setCurrent, currentItem, loading: loadingCurrent, currentPrimaryKey } = useCurrent();
 
@@ -163,7 +163,6 @@ export default defineComponent({
 			relatedCollection,
 			selection,
 			setCurrent,
-			totalCount,
 			stageSelection,
 			currentPrimaryKey,
 			relatedPrimaryKeyField,
@@ -260,17 +259,14 @@ export default defineComponent({
 		}
 
 		function useItems() {
-			const totalCount = ref(null);
-
 			const items = ref<null | Array<Record<string, any>>>(null);
 			const loading = ref(false);
 
 			watch(relatedCollection, () => {
-				fetchTotalCount();
 				items.value = null;
 			});
 
-			return { totalCount, fetchItems, items, loading };
+			return { fetchItems, items, loading };
 
 			async function fetchItems() {
 				if (items.value !== null) return;
@@ -303,23 +299,6 @@ export default defineComponent({
 				} finally {
 					loading.value = false;
 				}
-			}
-
-			async function fetchTotalCount() {
-				if (!relatedCollection.value) return;
-
-				const endpoint = relatedCollection.value.collection.startsWith('directus_')
-					? `/${relatedCollection.value.collection.substring(9)}`
-					: `/items/${relatedCollection.value.collection}`;
-
-				const response = await api.get(endpoint, {
-					params: {
-						limit: 0,
-						meta: 'total_count',
-					},
-				});
-
-				totalCount.value = response.data.meta.total_count;
 			}
 		}
 
