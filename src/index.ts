@@ -23,6 +23,7 @@ const config: InterfaceConfig = {
 							name: {
 								name: 'Full name',
 								type: 'string',
+                                                                operators: ['eq', 'neq'],
 							},
 							age: 'integer',
 							gender: {

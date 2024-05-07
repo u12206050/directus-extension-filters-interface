@@ -278,8 +278,8 @@ function replaceNode(index, newFilter) {
 function getCompareOptions(name) {
 	const fieldInfo = get(props.tree, name);
 	if (!fieldInfo) return [];
-
-	return getFilterOperatorsForType(fieldInfo.type || 'string').map(type => ({
+        const operators = (fieldInfo.operators && fieldInfo.operators.length > 0) ? fieldInfo.operators : getFilterOperatorsForType(fieldInfo.type || 'string');
+	return operators.map(type => ({
 		text: t(`operators.${type}`),
 		value: `_${type}`,
 	}));
