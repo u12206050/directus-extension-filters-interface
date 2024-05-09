@@ -33,6 +33,7 @@ type AdvProp = {
     type: PropType
     label?: string
     choices?: Choice[]
+    operators?: FieldFilterOperator[]
 }
 
 type RelationProp = {
@@ -85,6 +86,11 @@ type RelationProp = {
                     "text": "Female",
                     "value": "female"
                 }
+            ],
+             // (optional) Override default operators for this type (@see @directus/utils/getFilterOperatorsForType) 
+            "operators": [
+                "eq",
+                "neq"
             ]
         }
     }
