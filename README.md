@@ -33,7 +33,7 @@ type AdvProp = {
     type: PropType
     label?: string
     choices?: Choice[]
-    operators: FieldFilterOperator[]
+    operators?: FieldFilterOperator[]
 }
 
 type RelationProp = {
@@ -87,7 +87,8 @@ type RelationProp = {
                     "value": "female"
                 }
             ],
-            "operators": [ // Override default operators for this type (@see @directus/utils/getFilterOperatorsForType) 
+             // (optional) Override default operators for this type (@see @directus/utils/getFilterOperatorsForType) 
+            "operators": [
                 "eq",
                 "neq"
             ]
