@@ -1,7 +1,7 @@
-import { InterfaceConfig } from '@directus/types';
+import { defineInterface } from '@directus/extensions-sdk';
 import InterfaceComponent from './interface.vue';
 
-const config: InterfaceConfig = {
+export default defineInterface({
 	id: 'filters',
 	name: 'Filters&Rules',
 	description: 'A filter interface for creating rules on given properties',
@@ -23,7 +23,7 @@ const config: InterfaceConfig = {
 							name: {
 								name: 'Full name',
 								type: 'string',
-                                                                operators: ['eq', 'neq'],
+                operators: ['eq', 'neq'],
 							},
 							age: 'integer',
 							gender: {
@@ -58,6 +58,4 @@ const config: InterfaceConfig = {
 			},
 		},
 	],
-};
-
-export default config;
+});
