@@ -253,6 +253,10 @@ function removeNode(ids) {
 		border-left: var(--filter-border-width) solid var(--filter-border-color);
 	}
 
+	:deep(span.v-icon) {
+		display: none;
+	}
+
 	.v-list {
 		margin: 0px 0px 10px;
 		padding: var(--filter-padding);
