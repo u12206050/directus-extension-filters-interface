@@ -253,7 +253,7 @@ function removeNode(ids) {
 		border-left: var(--filter-border-width) solid var(--filter-border-color);
 	}
 
-	:deep(span.v-icon) {
+	:deep(.node-content .inline-display span.v-icon) {
 		display: none;
 	}
 
