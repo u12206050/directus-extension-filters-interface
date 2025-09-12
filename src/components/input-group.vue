@@ -136,21 +136,18 @@ function setValueAt(index: number, newVal: any) {
 </script>
 
 <template>
+	<template v-if="['_contains', '_ncontains', '_starts_with', '_nstarts_with', '_ends_with', '_nends_with'].includes(getComparator(field))">
+		<input-component is="interface-input" :value="value" @input="value = $event" />
+	</template>
 	<template
-		v-if="
+		v-else-if="
 			[
 				'_eq',
 				'_neq',
 				'_lt',
 				'_gt',
 				'_lte',
-				'_gte',
-				'_contains',
-				'_ncontains',
-				'_starts_with',
-				'_nstarts_with',
-				'_ends_with',
-				'_nends_with',
+				'_gte'
 			].includes(getComparator(field))
 		"
 	>
