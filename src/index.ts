@@ -23,7 +23,7 @@ export default defineInterface({
 							name: {
 								name: 'Full name',
 								type: 'string',
-                operators: ['eq', 'neq'],
+								operators: ['eq', 'neq'],
 							},
 							age: 'integer',
 							gender: {

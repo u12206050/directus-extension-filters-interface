@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { cloneDeep, get, isEmpty, set } from "lodash-es";
-import { computed, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import Nodes from "./components/nodes.vue";
-import { getNodeName } from "./utils";
+import { cloneDeep, get, isEmpty, set } from 'lodash-es';
+import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import Nodes from './components/nodes.vue';
+import { getNodeName } from './utils';
 
 const props = defineProps({
 	value: {
@@ -120,12 +120,12 @@ function objectToTree(obj, prefix = '') {
 			return null;
 		})
 		.filter(Boolean) as Array<{
-			name: string;
-			key: string;
-			selectable?: boolean;
-			type?: string;
-			children?: Array<any>;
-		}>;
+		name: string;
+		key: string;
+		selectable?: boolean;
+		type?: string;
+		children?: Array<any>;
+	}>;
 }
 
 function emitValue() {
@@ -189,8 +189,8 @@ function removeNode(ids) {
 				</v-select>
 			</div>
 		</v-notice>
-		
-		<v-list v-else :mandatory="true">			
+
+		<v-list v-else :mandatory="true">
 			<nodes
 				v-model:filter="innerValue"
 				:depth="1"

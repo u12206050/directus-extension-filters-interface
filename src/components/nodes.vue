@@ -56,7 +56,12 @@
 				<div v-else class="node logic">
 					<div class="node-content" :class="{ inline }">
 						<v-icon name="drag_indicator" class="drag-handle" small />
-						<div class="logic-type" :class="{ or: filterInfo[index].name === '_or' }">
+						<div
+							class="logic-type"
+							:class="{
+								or: filterInfo[index].name === '_or',
+							}"
+						>
 							<span class="key" @click="toggleLogic(index)">
 								{{ filterInfo[index].name === '_and' ? t('interfaces.filter.all') : t('interfaces.filter.any') }}
 							</span>
@@ -231,6 +236,11 @@ function updateComparator(index, operator) {
 				update(null);
 			}
 			break;
+		case '_some':
+		case '_none':
+			// For _some and _none, initialize with an _and group containing an empty array
+			update({ _and: [] });
+			break;
 		default:
 			update(Array.isArray(value) ? value[0] : value);
 			break;
@@ -278,7 +288,19 @@ function replaceNode(index, newFilter) {
 function getCompareOptions(name) {
 	const fieldInfo = get(props.tree, name);
 	if (!fieldInfo) return [];
-        const operators = (Array.isArray(fieldInfo.operators) && fieldInfo.operators.length > 0) ? fieldInfo.operators : getFilterOperatorsForType(fieldInfo.type || 'string');
+
+	let operators =
+		Array.isArray(fieldInfo.operators) && fieldInfo.operators.length > 0
+			? fieldInfo.operators
+			: getFilterOperatorsForType(fieldInfo.type || 'string');
+
+	// Add _some and _none operators for relationship fields (fields with children/nested properties)
+	const isRelationshipField =
+		fieldInfo && typeof fieldInfo === 'object' && !fieldInfo.type && Object.keys(fieldInfo).length > 0;
+	if (isRelationshipField) {
+		operators = ['some', 'none', ...operators];
+	}
+
 	return operators.map(type => ({
 		text: t(`operators.${type}`),
 		value: `_${type}`,

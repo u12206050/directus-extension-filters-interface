@@ -8,8 +8,8 @@ const props = defineProps({
 	value: {
 		type: Object,
 		default: null,
-	}
-})
+	},
+});
 
 const { t } = useI18n();
 
@@ -19,7 +19,7 @@ const innerValue = computed(() => {
 	return props.value._and ? props.value._and : [props.value];
 });
 </script>
-  
+
 <template>
 	<div class="system-filter" :class="{ empty: innerValue.length === 0 }">
 		<v-list :mandatory="true">
@@ -30,7 +30,7 @@ const innerValue = computed(() => {
 		</v-list>
 	</div>
 </template>
-  
+
 <style lang="scss" scoped>
 .system-filter {
 	:deep(ul),
@@ -49,7 +49,7 @@ const innerValue = computed(() => {
 		padding: 0;
 		border: 0;
 
-		&> :deep(.group) {
+		& > :deep(.group) {
 			margin-left: 0px;
 			padding-left: 0px;
 			border-left: none;
@@ -63,7 +63,7 @@ const innerValue = computed(() => {
 
 	&.empty {
 		.v-list {
-			display: none
+			display: none;
 		}
 
 		.no-rules {

@@ -4,7 +4,18 @@
 			<div class="header" :class="{ inline }">
 				<span>{{ getFieldPreview(element) }}</span>
 				<span class="comparator">{{ getCompareText(filterInfo[index].comparator) }}</span>
-				<span class="preview-value">{{ getFieldValue(element) }}</span>
+				<span v-if="!['_some', '_none'].includes(filterInfo[index].comparator)" class="preview-value">{{
+					getFieldValue(element)
+				}}</span>
+			</div>
+			<div v-if="['_some', '_none'].includes(filterInfo[index].comparator)" class="nested-display">
+				<nodes
+					:filter="getNestedFilters(element)"
+					:depth="depth + 1"
+					:inline="inline"
+					:tree="getNestedTree(element)"
+					:branches="[]"
+				/>
 			</div>
 		</div>
 
@@ -37,23 +48,23 @@ import { getComparator, getField, getNodeName } from '../utils';
 const { t } = useI18n();
 
 const props = defineProps({
-		filter: {
-			type: Object,
-			required: true,
-		},
-		tree: Object,
-		branches: Array,
-		depth: {
-			type: Number,
-			default: 1,
-		},
-		inline: {
-			type: Boolean,
-			default: false,
-		},
-})
+	filter: {
+		type: Object,
+		required: true,
+	},
+	tree: Object,
+	branches: Array,
+	depth: {
+		type: Number,
+		default: 1,
+	},
+	inline: {
+		type: Boolean,
+		default: false,
+	},
+});
 
-const emit = defineEmits(['remove-node', 'update:filter', 'change'])
+const emit = defineEmits(['remove-node', 'update:filter', 'change']);
 
 const filterSync = computed({
 	get() {
@@ -63,7 +74,6 @@ const filterSync = computed({
 		emit(`update:filter` as const, newVal);
 	},
 });
-
 
 const filterInfo = computed({
 	get() {
@@ -79,17 +89,42 @@ const filterInfo = computed({
 						field: getField(node),
 						comparator: getComparator(node),
 						node,
-					}
+				  }
 				: { id, name, isField, node };
 		});
 	},
 	set(newVal) {
 		emit(
 			'update:filter',
-			newVal.map((val) => val.node)
+			newVal.map(val => val.node)
 		);
 	},
 });
+
+function getNestedFilters(node) {
+	const fieldPath = getField(node);
+	const comparator = getComparator(node);
+	const value = get(node, `${fieldPath}.${comparator}`);
+
+	if (value && typeof value === 'object' && '_and' in value) {
+		return value._and;
+	} else if (value && typeof value === 'object' && '_or' in value) {
+		return value._or;
+	} else if (Array.isArray(value)) {
+		return value;
+	}
+	return [];
+}
+
+function getNestedTree(node) {
+	const fieldPath = getField(node);
+	const relatedFieldInfo = get(props.tree, fieldPath);
+	// For relationship fields, return the nested properties
+	if (relatedFieldInfo && typeof relatedFieldInfo === 'object' && !relatedFieldInfo.type) {
+		return relatedFieldInfo;
+	}
+	return {};
+}
 
 function getFieldPreview(node) {
 	const fieldKey = getField(node);
@@ -115,11 +150,11 @@ function getFieldValue(node) {
 
 	let value = get(node, `${fieldPath}.${comparator}`);
 	if (['_in', '_nin'].includes(comparator)) {
-		value = [...(value).filter((val: any) => val !== null && val !== ''), null];
+		value = [...value.filter((val: any) => val !== null && val !== ''), null];
 	}
 
 	if (Array.isArray(value)) {
-		value = value.join(', ')
+		value = value.join(', ');
 	}
 
 	if (value === null) return null;
@@ -134,6 +169,13 @@ function getFieldValue(node) {
 </script>
 
 <style lang="scss" scoped>
+.nested-display {
+	margin-top: 8px;
+	margin-left: 8px;
+	padding: 8px;
+	background-color: var(--background-subdued);
+	border-radius: 6px;
+}
 
 .preview-value {
 	display: flex;
