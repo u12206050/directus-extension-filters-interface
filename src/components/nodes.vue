@@ -60,12 +60,16 @@
 							class="logic-type"
 							:class="{
 								or: filterInfo[index].name === '_or',
+								none: filterInfo[index].isNone,
 							}"
 						>
 							<span class="key" @click="toggleLogic(index)">
-								{{ filterInfo[index].name === '_and' ? t('interfaces.filter.all') : t('interfaces.filter.any') }}
+								{{ getLogicLabel(filterInfo[index]) }}
 							</span>
-							<span class="text">{{ t('interfaces.filter.of_the_following') }}</span>
+							<span class="text">
+								{{ t('interfaces.filter.of_the_following') }}
+								<b>{{ relationshipDisplayName(filterInfo[index]) }}</b>
+							</span>
 						</div>
 						<span class="delete">
 							<v-icon
@@ -76,16 +80,43 @@
 								@click="$emit('remove-node', [index])"
 							/>
 						</span>
+
+						<!-- Add Filter button for _none groups -->
+						<div v-if="filterInfo[index].isNone" class="nested-buttons">
+							<v-select
+								inline
+								item-text="name"
+								item-value="key"
+								placement="bottom-start"
+								class="add-filter"
+								:placeholder="t('interfaces.filter.add_filter')"
+								:model-value="null"
+								:items="[
+									{ key: '$group', name: t('interfaces.filter.add_group') },
+									{ divider: true },
+									...getNoneGroupBranches(filterInfo[index]),
+								]"
+								:mandatory="false"
+								:groups-clickable="true"
+								@update:modelValue="addNoneGroupFilter(index, filterInfo[index], $event)"
+							>
+							</v-select>
+						</div>
 					</div>
 					<nodes
-						:filter="element[filterInfo[index].name]"
+						:filter="getNoneGroupFilters(element, filterInfo[index])"
 						:depth="depth + 1"
 						:inline="inline"
-						:tree="tree"
-						:branches="branches"
+						:tree="getNoneGroupTree(filterInfo[index])"
+						:branches="getNoneGroupBranches(filterInfo[index])"
 						@change="$emit('change')"
-						@remove-node="$emit('remove-node', [`${index}.${filterInfo[index].name}`, ...$event])"
-						@update:filter="replaceNode(index, { [filterInfo[index].name]: $event })"
+						@remove-node="
+							$emit('remove-node', [
+								`${index}.${filterInfo[index].isNone ? filterInfo[index].name + '._none' : filterInfo[index].name}`,
+								...$event,
+							])
+						"
+						@update:filter="updateNoneGroup(index, filterInfo[index], $event)"
 					/>
 				</div>
 			</li>
@@ -95,7 +126,7 @@
 
 <script lang="ts" setup>
 import { getFilterOperatorsForType, toArray } from '@directus/utils';
-import { get } from 'lodash-es';
+import { get, set } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Draggable from 'vuedraggable';
@@ -142,6 +173,22 @@ const filterInfo = computed({
 			const name = getNodeName(node);
 			const isField = name.startsWith('_') === false;
 
+			// Check if this is a _none group (special case: field with _none operator)
+			if (isField) {
+				const fieldValue = node[name];
+				if (fieldValue && typeof fieldValue === 'object' && '_none' in fieldValue) {
+					// This is a _none group - treat it as a logical group
+					return {
+						id,
+						name,
+						isField: false,
+						isNone: true,
+						relationshipField: name,
+						node,
+					};
+				}
+			}
+
 			return isField
 				? {
 						id,
@@ -170,7 +217,7 @@ function getFieldPreview(node) {
 	const fieldNames = fieldParts.map((fieldKey, index) => {
 		const pathPrefix = fieldParts.slice(0, index);
 		const field = get(props.tree, [...pathPrefix, fieldKey].join('.'));
-		return field?.name ?? fieldKey;
+		return field && typeof field.name === 'string' && field.name !== 'name' ? field.name : fieldKey;
 	});
 
 	return fieldNames.join(' -> ');
@@ -180,10 +227,186 @@ function getIndex(item) {
 	return props.filter.findIndex(filter => filter === item);
 }
 
+function getLogicLabel(nodeInfo: any): string {
+	if (nodeInfo.isNone) {
+		return `None`;
+	} else if (nodeInfo.name === '_and') {
+		return t('interfaces.filter.all');
+	} else if (nodeInfo.name === '_or') {
+		return t('interfaces.filter.any');
+	}
+	return nodeInfo.name;
+}
+
+function relationshipDisplayName(nodeInfo: any): string {
+	const relationshipTree = get(props.tree, nodeInfo.relationshipField);
+	return relationshipTree?.__displayName || relationshipTree?.name || nodeInfo.relationshipField;
+}
+
+function stripRelationshipPrefix(filters: any[], relationshipField: string): any[] {
+	// Strip the relationship field prefix from nested filters
+	return filters.map(filter => {
+		const name = getNodeName(filter);
+
+		// If it's a logical group, recursively process its contents
+		if (['_and', '_or', '_none'].includes(name)) {
+			return {
+				[name]: stripRelationshipPrefix(filter[name], relationshipField),
+			};
+		}
+
+		// If the field starts with the relationship prefix, strip it
+		if (name.startsWith(relationshipField + '.')) {
+			const strippedField = name.substring(relationshipField.length + 1);
+			return {
+				[strippedField]: filter[name],
+			};
+		}
+
+		// Field doesn't have the prefix (already stripped or invalid)
+		return filter;
+	});
+}
+
+function addRelationshipPrefix(filters: any[], relationshipField: string): any[] {
+	// Add the relationship field prefix to nested filters
+	return filters.map(filter => {
+		const name = getNodeName(filter);
+
+		// If it's a logical group, recursively process its contents
+		if (['_and', '_or', '_none'].includes(name)) {
+			return {
+				[name]: addRelationshipPrefix(filter[name], relationshipField),
+			};
+		}
+
+		// Add the relationship prefix if it doesn't already have it
+		if (!name.startsWith(relationshipField + '.')) {
+			return {
+				[relationshipField + '.' + name]: filter[name],
+			};
+		}
+
+		// Already has prefix
+		return filter;
+	});
+}
+
+function getNoneGroupFilters(element: any, nodeInfo: any) {
+	if (nodeInfo.isNone) {
+		const rawFilters = element[nodeInfo.name]._none || [];
+		// Strip the relationship prefix from displayed filters
+		return stripRelationshipPrefix(Array.isArray(rawFilters) ? rawFilters : [rawFilters], nodeInfo.relationshipField);
+	}
+	return element[nodeInfo.name];
+}
+
+function getNoneGroupTree(nodeInfo: any) {
+	if (nodeInfo.isNone) {
+		// Get the nested tree for the relationship field
+		const relationshipTree = get(props.tree, nodeInfo.relationshipField);
+		if (relationshipTree && typeof relationshipTree === 'object' && !relationshipTree.type) {
+			const tree = { ...relationshipTree };
+			delete tree.__displayName;
+			delete tree.__isMultipleRelationship;
+			return tree;
+		}
+		return {};
+	}
+	return props.tree;
+}
+
+function getNoneGroupBranches(nodeInfo: any) {
+	if (nodeInfo.isNone) {
+		// Build branches from the relationship tree
+		const relationshipTree = get(props.tree, nodeInfo.relationshipField);
+		if (relationshipTree && typeof relationshipTree === 'object' && !relationshipTree.type) {
+			const tree = { ...relationshipTree };
+			delete tree.__displayName;
+			delete tree.__isMultipleRelationship;
+			return objectToTree(tree);
+		}
+		return [];
+	}
+	return props.branches;
+}
+
+function objectToTree(obj: any, prefix = ''): any[] {
+	return Object.keys(obj)
+		.map(k => {
+			const propValue = obj[k];
+			const key = [prefix, k].filter(Boolean).join('.');
+
+			if (typeof propValue === 'object') {
+				if (typeof propValue.type === 'string') {
+					return {
+						key,
+						name: typeof propValue.name === 'string' ? propValue.name : k,
+					};
+				} else {
+					const nestedChildren: any[] = objectToTree(propValue, key);
+					return {
+						key,
+						name:
+							typeof propValue.__displayName === 'string'
+								? propValue.__displayName
+								: typeof propValue.name === 'string'
+								? propValue.name
+								: k,
+						children: nestedChildren,
+					};
+				}
+			}
+
+			return null;
+		})
+		.filter(Boolean);
+}
+
+function addNoneGroupFilter(index: number, nodeInfo: any, key: string) {
+	if (!nodeInfo.isNone) return;
+
+	const currentFilters = getNoneGroupFilters(filterSync.value[index], nodeInfo);
+	let newFilter;
+
+	if (key === '$group') {
+		newFilter = { _and: [] };
+	} else {
+		// Create filter without the relationship prefix (it will be added when saving)
+		newFilter = set({}, key, { _eq: null });
+	}
+
+	updateNoneGroup(index, nodeInfo, [...currentFilters, newFilter]);
+}
+
+function updateNoneGroup(index: number, nodeInfo: any, newFilters: any[]) {
+	if (nodeInfo.isNone) {
+		// Add the relationship prefix back to the filters before saving
+		const prefixedFilters = addRelationshipPrefix(newFilters, nodeInfo.relationshipField);
+
+		// Update the _none group
+		filterSync.value = filterSync.value.map((filter, filterIndex) => {
+			if (filterIndex === index) {
+				return {
+					[nodeInfo.relationshipField]: {
+						_none: prefixedFilters,
+					},
+				};
+			}
+			return filter;
+		});
+	} else {
+		replaceNode(index, { [nodeInfo.name]: newFilters });
+	}
+}
+
 function toggleLogic(index) {
 	const nodeInfo = filterInfo.value[index];
 
 	if (filterInfo.value[index].isField) return;
+
+	// Don't toggle _none groups - they're locked to the relationship
+	if (nodeInfo.isNone) return;
 
 	if ('_and' in nodeInfo.node) {
 		filterSync.value = filterSync.value.map((filter, filterIndex) => {
@@ -235,11 +458,6 @@ function updateComparator(index, operator) {
 			} else {
 				update(null);
 			}
-			break;
-		case '_some':
-		case '_none':
-			// For _some and _none, initialize with an _and group containing an empty array
-			update({ _and: [] });
 			break;
 		default:
 			update(Array.isArray(value) ? value[0] : value);
@@ -294,11 +512,9 @@ function getCompareOptions(name) {
 			? fieldInfo.operators
 			: getFilterOperatorsForType(fieldInfo.type || 'string');
 
-	// Add _some and _none operators for relationship fields (fields with children/nested properties)
-	const isRelationshipField =
-		fieldInfo && typeof fieldInfo === 'object' && !fieldInfo.type && Object.keys(fieldInfo).length > 0;
-	if (isRelationshipField) {
-		operators = ['some', 'none', ...operators];
+	// Add _none operator for o2m/m2m relationship fields only (not m2o)
+	if (fieldInfo.__isMultipleRelationship) {
+		operators.push('none');
 	}
 
 	return operators.map(type => ({
@@ -350,13 +566,25 @@ function getCompareOptions(name) {
 				background-color: var(--orange-25);
 			}
 		}
+
+		&.none .key {
+			color: var(--red-125);
+			background-color: var(--red-10);
+
+			&:hover {
+				background-color: var(--red-25);
+			}
+		}
 	}
 
-	:deep(.inline-display) {
-		padding-right: 0px;
+	.nested-buttons {
+		padding: 0 10px;
+		margin-top: 8px;
+		margin-left: 10px;
+		font-weight: 600;
 
-		.v-icon {
-			display: none;
+		.add-filter {
+			--v-select-placeholder-color: var(--secondary);
 		}
 	}
 

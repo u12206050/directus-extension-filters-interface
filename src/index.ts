@@ -11,8 +11,22 @@ export default defineInterface({
 	group: 'selection',
 	options: [
 		{
+			field: 'useCollection',
+			type: 'string',
+			name: '$t:collection',
+			meta: {
+				interface: 'system-collection',
+				options: {
+					includeSystem: true,
+					includeSingleton: false,
+				},
+				width: 'full',
+				note: 'Select a collection to use its fields as the schema. If not set, custom properties below will be used.',
+			},
+		},
+		{
 			field: 'properties',
-			name: 'Properties',
+			name: 'Custom Properties',
 			type: 'json',
 			meta: {
 				interface: 'code',
@@ -52,6 +66,7 @@ export default defineInterface({
 						4
 					),
 				},
+				note: 'Custom schema definition. Only used if no collection is selected above.',
 			},
 			schema: {
 				default_value: `{}`,

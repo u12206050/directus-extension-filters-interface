@@ -4,32 +4,27 @@
 			<div class="header" :class="{ inline }">
 				<span>{{ getFieldPreview(element) }}</span>
 				<span class="comparator">{{ getCompareText(filterInfo[index].comparator) }}</span>
-				<span v-if="!['_some', '_none'].includes(filterInfo[index].comparator)" class="preview-value">{{
-					getFieldValue(element)
-				}}</span>
-			</div>
-			<div v-if="['_some', '_none'].includes(filterInfo[index].comparator)" class="nested-display">
-				<nodes
-					:filter="getNestedFilters(element)"
-					:depth="depth + 1"
-					:inline="inline"
-					:tree="getNestedTree(element)"
-					:branches="[]"
-				/>
+				<span class="preview-value">{{ getFieldValue(element) }}</span>
 			</div>
 		</div>
 
 		<div v-else class="node logic">
 			<div class="header" :class="{ inline }">
-				<div class="logic-type" :class="{ or: filterInfo[index].name === '_or' }">
+				<div
+					class="logic-type"
+					:class="{
+						or: filterInfo[index].name === '_or',
+						none: filterInfo[index].isNone,
+					}"
+				>
 					<span class="key">
-						{{ filterInfo[index].name === '_and' ? t('interfaces.filter.all') : t('interfaces.filter.any') }}
+						{{ getLogicLabel(filterInfo[index]) }}
 					</span>
 					<span class="text">{{ t('interfaces.filter.of_the_following') }}</span>
 				</div>
 			</div>
 			<nodes
-				:filter="element[filterInfo[index].name]"
+				:filter="filterInfo[index].isNone ? element[filterInfo[index].name]._none : element[filterInfo[index].name]"
 				:depth="depth + 1"
 				:inline="inline"
 				:tree="tree"
@@ -81,6 +76,22 @@ const filterInfo = computed({
 			const name = getNodeName(node);
 			const isField = name.startsWith('_') === false;
 
+			// Check if this is a _none group (special case: field with _none operator)
+			if (isField) {
+				const fieldValue = node[name];
+				if (fieldValue && typeof fieldValue === 'object' && '_none' in fieldValue) {
+					// This is a _none group - treat it as a logical group
+					return {
+						id,
+						name,
+						isField: false,
+						isNone: true,
+						relationshipField: name,
+						node,
+					};
+				}
+			}
+
 			return isField
 				? {
 						id,
@@ -101,29 +112,19 @@ const filterInfo = computed({
 	},
 });
 
-function getNestedFilters(node) {
-	const fieldPath = getField(node);
-	const comparator = getComparator(node);
-	const value = get(node, `${fieldPath}.${comparator}`);
-
-	if (value && typeof value === 'object' && '_and' in value) {
-		return value._and;
-	} else if (value && typeof value === 'object' && '_or' in value) {
-		return value._or;
-	} else if (Array.isArray(value)) {
-		return value;
+function getLogicLabel(nodeInfo: any): string {
+	if (nodeInfo.isNone) {
+		// Show the relationship field name before "None"
+		const relationshipTree = get(props.tree, nodeInfo.relationshipField);
+		const relationshipDisplayName =
+			relationshipTree?.__displayName || relationshipTree?.name || nodeInfo.relationshipField;
+		return `${relationshipDisplayName} - None`;
+	} else if (nodeInfo.name === '_and') {
+		return t('interfaces.filter.all');
+	} else if (nodeInfo.name === '_or') {
+		return t('interfaces.filter.any');
 	}
-	return [];
-}
-
-function getNestedTree(node) {
-	const fieldPath = getField(node);
-	const relatedFieldInfo = get(props.tree, fieldPath);
-	// For relationship fields, return the nested properties
-	if (relatedFieldInfo && typeof relatedFieldInfo === 'object' && !relatedFieldInfo.type) {
-		return relatedFieldInfo;
-	}
-	return {};
+	return nodeInfo.name;
 }
 
 function getFieldPreview(node) {
@@ -141,7 +142,14 @@ function getFieldPreview(node) {
 }
 
 function getCompareText(comparator) {
-	return t(`operators.${comparator.slice(1)}`);
+	const operatorName = comparator.slice(1); // Remove leading underscore
+
+	// Handle custom operators that don't have translations
+	if (operatorName === 'none') {
+		return 'None';
+	}
+
+	return t(`operators.${operatorName}`);
 }
 
 function getFieldValue(node) {
@@ -169,14 +177,6 @@ function getFieldValue(node) {
 </script>
 
 <style lang="scss" scoped>
-.nested-display {
-	margin-top: 8px;
-	margin-left: 8px;
-	padding: 8px;
-	background-color: var(--background-subdued);
-	border-radius: 6px;
-}
-
 .preview-value {
 	display: flex;
 	justify-content: center;
@@ -222,6 +222,15 @@ function getFieldValue(node) {
 
 			&:hover {
 				background-color: var(--secondary-25);
+			}
+		}
+
+		&.none .key {
+			color: var(--red);
+			background-color: var(--red-10);
+
+			&:hover {
+				background-color: var(--red-25);
 			}
 		}
 	}
