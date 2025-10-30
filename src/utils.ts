@@ -8,6 +8,8 @@ export function getNodeName(node: Filter): string {
 export function getField(node: Record<string, any>): string {
 	const name = getNodeName(node);
 	if (name.startsWith('_')) return '';
+	// Handle function syntax like count(field) - these are leaf nodes
+	if (name.match(/^\w+\(.+\)$/)) return name;
 	const subFields = getField(node[name]);
 	return subFields !== '' ? `${name}.${subFields}` : name;
 }

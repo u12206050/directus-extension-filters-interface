@@ -130,12 +130,24 @@ function getLogicLabel(nodeInfo: any): string {
 function getFieldPreview(node) {
 	const fieldKey = getField(node);
 
-	const fieldParts = fieldKey.split('.');
+	// Handle function syntax like count(field)
+	const functionMatch = fieldKey.match(/^(\w+)\((.+)\)$/);
+	if (functionMatch && functionMatch[1] && functionMatch[2]) {
+		const funcName = functionMatch[1];
+		const fieldPath = functionMatch[2];
+		return `${funcName.charAt(0).toUpperCase() + funcName.slice(1)} (${prettyPath(fieldPath)})`;
+	}
+
+	return prettyPath(fieldKey);
+}
+
+function prettyPath(path: string) {
+	const fieldParts = path.split('.');
 
 	const fieldNames = fieldParts.map((fieldKey, index) => {
 		const pathPrefix = fieldParts.slice(0, index);
 		const field = get(props.tree, [...pathPrefix, fieldKey].join('.'));
-		return field?.name ?? fieldKey;
+		return (field?.__displayName || field?.name) ?? fieldKey;
 	});
 
 	return fieldNames.join(' -> ');

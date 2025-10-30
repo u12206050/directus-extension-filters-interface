@@ -19,7 +19,21 @@ const { t } = useI18n();
 const emit = defineEmits(['update:field']);
 
 const fieldInfo = computed(() => {
-	return get(props.tree, getField(props.field));
+	const fieldPath = getField(props.field);
+
+	// Handle function syntax like count(field) - these return integers
+	const functionMatch = fieldPath.match(/^(\w+)\((.+)\)$/);
+	if (functionMatch) {
+		const [, funcName] = functionMatch;
+		if (funcName === 'count') {
+			return {
+				name: fieldPath,
+				type: 'integer',
+			};
+		}
+	}
+
+	return get(props.tree, fieldPath);
 });
 
 const continents = {

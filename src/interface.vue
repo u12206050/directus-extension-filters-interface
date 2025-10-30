@@ -284,11 +284,12 @@ function objectToTree(obj, prefix = '') {
 						child => child && child.key !== `${key}.__displayName` && child.key !== `${key}.__isMultipleRelationship`
 					);
 
-					// Add special [None] option at the top for o2m/m2m relationship operators only
-					// Note: _some is the default behavior, m2o relationships don't support _none
+					// Add special options at the top for o2m/m2m relationship operators only
+					// Note: _some is the default behavior, m2o relationships don't support _none or count
 					let specialChildren;
 					if (propValue.__isMultipleRelationship === true) {
 						specialChildren = [
+							{ key: `${key}.$count`, name: '# Count', operator: 'count', selectable: true },
 							{ key: `${key}.$none`, name: '∅ None', operator: '_none', selectable: true },
 							{ divider: true },
 						];
@@ -337,6 +338,12 @@ function addNode(key) {
 		// Create a _none group scoped to the relationship
 		const fieldPath = key.replace(/\.\$none$/, '');
 		const node = set({}, fieldPath, { _none: [] });
+		innerValue.value = innerValue.value.concat(node);
+	} else if (key.endsWith('.$count')) {
+		// Handle count() function for relationships
+		const fieldPath = key.replace(/\.\$count$/, '');
+		const countKey = `count(${fieldPath})`;
+		const node = { [countKey]: { _eq: null } };
 		innerValue.value = innerValue.value.concat(node);
 	} else {
 		const node = set({}, key, { ['_eq']: null });

@@ -82,7 +82,7 @@
 						</span>
 
 						<!-- Add Filter button for _none groups -->
-						<div v-if="filterInfo[index].isNone" class="nested-buttons">
+						<div v-if="filterInfo[index].isNone" class="add-sub-filter">
 							<v-select
 								inline
 								item-text="name"
@@ -212,12 +212,25 @@ const filterInfo = computed({
 function getFieldPreview(node) {
 	const fieldKey = getField(node);
 
-	const fieldParts = fieldKey.split('.');
+	// Handle function syntax like count(field)
+	const functionMatch = fieldKey.match(/^(\w+)\((.+)\)$/);
+	if (functionMatch && functionMatch[1] && functionMatch[2]) {
+		const funcName = functionMatch[1];
+		const fieldPath = functionMatch[2];
+		console.log(fieldPath);
+		return `${funcName.charAt(0).toUpperCase() + funcName.slice(1)} (${prettyPath(fieldPath)})`;
+	}
+
+	return prettyPath(fieldKey);
+}
+
+function prettyPath(path: string) {
+	const fieldParts = path.split('.');
 
 	const fieldNames = fieldParts.map((fieldKey, index) => {
 		const pathPrefix = fieldParts.slice(0, index);
 		const field = get(props.tree, [...pathPrefix, fieldKey].join('.'));
-		return field && typeof field.name === 'string' && field.name !== 'name' ? field.name : fieldKey;
+		return (field?.__displayName || field?.name) ?? fieldKey;
 	});
 
 	return fieldNames.join(' -> ');
@@ -475,19 +488,41 @@ function updateComparator(index, operator) {
 }
 
 function updateField(index, newField) {
+	if (newField.includes('.$')) {
+		const [path, func] = newField.split('.$');
+		switch (func) {
+			case 'none':
+				return replaceNode(index, { [path]: { _none: [] } });
+			default:
+				return replaceNode(index, { [`${func}(${path})`]: { _eq: null } });
+		}
+	}
+
 	const nodeInfo = filterInfo.value[index];
 	const oldFieldInfo = get(props.tree, nodeInfo.name);
-	const newFieldInfo = get(props.tree, newField);
+
+	// Handle function syntax like count(field) - these return numbers
+	const newFunctionMatch = newField.match(/^(\w+)\((.+)\)$/);
+	let newFieldInfo =
+		newFunctionMatch && newFunctionMatch[1] === 'count'
+			? { type: 'integer' } // count() returns integer
+			: get(props.tree, newField);
 
 	if (nodeInfo.isField === false) return;
+
+	// Determine old field type (handle function syntax)
+	const oldFunctionMatch = nodeInfo.field.match(/^(\w+)\((.+)\)$/);
+	const oldFieldType = oldFunctionMatch && oldFunctionMatch[1] === 'count' ? 'integer' : oldFieldInfo?.type;
 
 	const valuePath = nodeInfo.field + '.' + nodeInfo.comparator;
 	let value = get(nodeInfo.node, valuePath);
 	let comparator = nodeInfo.comparator;
 
-	if (oldFieldInfo?.type !== newFieldInfo?.type) {
+	if (oldFieldType !== newFieldInfo?.type) {
 		value = null;
-		comparator = getCompareOptions(newField)[0].value;
+		const opts = getCompareOptions(newField);
+		if (!opts.length) return;
+		comparator = opts[0].value;
 	}
 
 	filterSync.value = filterSync.value.map((filter, filterIndex) => {
@@ -504,6 +539,20 @@ function replaceNode(index, newFilter) {
 }
 
 function getCompareOptions(name) {
+	// Handle function syntax like count(field) - these return numbers
+	const functionMatch = name.match(/^(\w+)\((.+)\)$/);
+	if (functionMatch && functionMatch[1] && functionMatch[2]) {
+		const funcName = functionMatch[1];
+		if (funcName === 'count') {
+			// count() returns an integer, so use all numeric operators
+			const operators = getFilterOperatorsForType('integer');
+			return operators.map(type => ({
+				text: t(`operators.${type}`),
+				value: `_${type}`,
+			}));
+		}
+	}
+
 	const fieldInfo = get(props.tree, name);
 	if (!fieldInfo) return [];
 
@@ -577,11 +626,10 @@ function getCompareOptions(name) {
 		}
 	}
 
-	.nested-buttons {
+	.add-sub-filter {
 		padding: 0 10px;
-		margin-top: 8px;
 		margin-left: 10px;
-		font-weight: 600;
+		font-weight: 500;
 
 		.add-filter {
 			--v-select-placeholder-color: var(--secondary);

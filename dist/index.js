@@ -8434,6 +8434,8 @@ function getField(node) {
   const name = getNodeName(node);
   if (name.startsWith("_"))
     return "";
+  if (name.match(/^\w+\(.+\)$/))
+    return name;
   const subFields = getField(node[name]);
   return subFields !== "" ? `${name}.${subFields}` : name;
 }
@@ -9222,7 +9224,18 @@ var _sfc_main$2 = /* @__PURE__ */ defineComponent({
     const { t } = useI18n();
     const emit = __emit;
     const fieldInfo = computed(() => {
-      return get$1(props.tree, getField(props.field));
+      const fieldPath = getField(props.field);
+      const functionMatch = fieldPath.match(/^(\w+)\((.+)\)$/);
+      if (functionMatch) {
+        const [, funcName] = functionMatch;
+        if (funcName === "count") {
+          return {
+            name: fieldPath,
+            type: "integer"
+          };
+        }
+      }
+      return get$1(props.tree, fieldPath);
     });
     const continents = {
       AF: "Africa",
@@ -9390,10 +9403,10 @@ var _sfc_main$2 = /* @__PURE__ */ defineComponent({
   }
 });
 
-var css$3 = ".value[data-v-bd1bd38c] {\n  display: flex;\n  align-items: center;\n}\n.value .v-icon[data-v-bd1bd38c] {\n  margin-right: 8px;\n  margin-left: 12px;\n  color: var(--filter-subdued);\n  cursor: pointer;\n}\n.value .v-icon[data-v-bd1bd38c]:hover {\n  color: var(--danger);\n}\n\n.list[data-v-bd1bd38c] {\n  display: flex;\n}\n.list .value[data-v-bd1bd38c]:not(:last-child)::after {\n  margin-right: 6px;\n  content: \",\";\n}\n.list.moveComma .value[data-v-bd1bd38c]:not(:last-child)::after {\n  margin: 0 8px 0 -6px;\n}\n\n.and[data-v-bd1bd38c] {\n  margin: 0px 8px;\n}";
+var css$3 = ".value[data-v-0111bf95] {\n  display: flex;\n  align-items: center;\n}\n.value .v-icon[data-v-0111bf95] {\n  margin-right: 8px;\n  margin-left: 12px;\n  color: var(--filter-subdued);\n  cursor: pointer;\n}\n.value .v-icon[data-v-0111bf95]:hover {\n  color: var(--danger);\n}\n\n.list[data-v-0111bf95] {\n  display: flex;\n}\n.list .value[data-v-0111bf95]:not(:last-child)::after {\n  margin-right: 6px;\n  content: \",\";\n}\n.list.moveComma .value[data-v-0111bf95]:not(:last-child)::after {\n  margin: 0 8px 0 -6px;\n}\n\n.and[data-v-0111bf95] {\n  margin: 0px 8px;\n}";
 n(css$3,{});
 
-var InputGroup = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-bd1bd38c"], ["__file", "input-group.vue"]]);
+var InputGroup = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-0111bf95"], ["__file", "input-group.vue"]]);
 
 const _hoisted_1$1 = {
   key: 0,
@@ -9410,7 +9423,7 @@ const _hoisted_5 = { class: "text" };
 const _hoisted_6 = { class: "delete" };
 const _hoisted_7 = {
   key: 0,
-  class: "nested-buttons"
+  class: "add-sub-filter"
 };
 var _sfc_main$1 = /* @__PURE__ */ defineComponent({
   __name: "nodes",
@@ -9484,11 +9497,22 @@ var _sfc_main$1 = /* @__PURE__ */ defineComponent({
     });
     function getFieldPreview(node) {
       const fieldKey = getField(node);
-      const fieldParts = fieldKey.split(".");
-      const fieldNames = fieldParts.map((fieldKey2, index) => {
+      const functionMatch = fieldKey.match(/^(\w+)\((.+)\)$/);
+      if (functionMatch && functionMatch[1] && functionMatch[2]) {
+        const funcName = functionMatch[1];
+        const fieldPath = functionMatch[2];
+        console.log(fieldPath);
+        return `${funcName.charAt(0).toUpperCase() + funcName.slice(1)} (${prettyPath(fieldPath)})`;
+      }
+      return prettyPath(fieldKey);
+    }
+    function prettyPath(path) {
+      const fieldParts = path.split(".");
+      const fieldNames = fieldParts.map((fieldKey, index) => {
+        var _a;
         const pathPrefix = fieldParts.slice(0, index);
-        const field = get$1(props.tree, [...pathPrefix, fieldKey2].join("."));
-        return field && typeof field.name === "string" && field.name !== "name" ? field.name : fieldKey2;
+        const field = get$1(props.tree, [...pathPrefix, fieldKey].join("."));
+        return (_a = (field == null ? void 0 : field.__displayName) || (field == null ? void 0 : field.name)) != null ? _a : fieldKey;
       });
       return fieldNames.join(" -> ");
     }
@@ -9694,17 +9718,32 @@ var _sfc_main$1 = /* @__PURE__ */ defineComponent({
       }
     }
     function updateField(index, newField) {
+      if (newField.includes(".$")) {
+        const [path, func] = newField.split(".$");
+        switch (func) {
+          case "none":
+            return replaceNode(index, { [path]: { _none: [] } });
+          default:
+            return replaceNode(index, { [`${func}(${path})`]: { _eq: null } });
+        }
+      }
       const nodeInfo = filterInfo.value[index];
       const oldFieldInfo = get$1(props.tree, nodeInfo.name);
-      const newFieldInfo = get$1(props.tree, newField);
+      const newFunctionMatch = newField.match(/^(\w+)\((.+)\)$/);
+      let newFieldInfo = newFunctionMatch && newFunctionMatch[1] === "count" ? { type: "integer" } : get$1(props.tree, newField);
       if (nodeInfo.isField === false)
         return;
+      const oldFunctionMatch = nodeInfo.field.match(/^(\w+)\((.+)\)$/);
+      const oldFieldType = oldFunctionMatch && oldFunctionMatch[1] === "count" ? "integer" : oldFieldInfo == null ? void 0 : oldFieldInfo.type;
       const valuePath = nodeInfo.field + "." + nodeInfo.comparator;
       let value = get$1(nodeInfo.node, valuePath);
       let comparator = nodeInfo.comparator;
-      if ((oldFieldInfo == null ? void 0 : oldFieldInfo.type) !== (newFieldInfo == null ? void 0 : newFieldInfo.type)) {
+      if (oldFieldType !== (newFieldInfo == null ? void 0 : newFieldInfo.type)) {
         value = null;
-        comparator = getCompareOptions(newField)[0].value;
+        const opts = getCompareOptions(newField);
+        if (!opts.length)
+          return;
+        comparator = opts[0].value;
       }
       filterSync.value = filterSync.value.map((filter, filterIndex) => {
         if (filterIndex === index)
@@ -9720,6 +9759,17 @@ var _sfc_main$1 = /* @__PURE__ */ defineComponent({
       });
     }
     function getCompareOptions(name) {
+      const functionMatch = name.match(/^(\w+)\((.+)\)$/);
+      if (functionMatch && functionMatch[1] && functionMatch[2]) {
+        const funcName = functionMatch[1];
+        if (funcName === "count") {
+          const operators2 = getFilterOperatorsForType("integer");
+          return operators2.map((type) => ({
+            text: t(`operators.${type}`),
+            value: `_${type}`
+          }));
+        }
+      }
       const fieldInfo = get$1(props.tree, name);
       if (!fieldInfo)
         return [];
@@ -9922,10 +9972,10 @@ var _sfc_main$1 = /* @__PURE__ */ defineComponent({
   }
 });
 
-var css$2 = ".node-content[data-v-62a95ca1] {\n  position: relative;\n  display: flex;\n  align-items: center;\n  width: fit-content;\n  margin-right: 18px;\n  margin-bottom: 8px;\n  padding: 2px 6px;\n  padding-right: 8px;\n  background-color: var(--filter-background);\n  border: var(--filter-border-width) solid var(--filter-border-color);\n  border-radius: 100px;\n  transition: border-color var(--fast) var(--transition);\n}\n.node-content .logic-type[data-v-62a95ca1] {\n  color: var(--filter-subdued);\n}\n.node-content .logic-type .key[data-v-62a95ca1] {\n  margin-right: 4px;\n  padding: 2px 6px;\n  border-radius: 6px;\n  cursor: pointer;\n  transition: var(--fast) var(--transition);\n  transition-property: color, background-color;\n  color: var(--blue-125);\n  background-color: var(--blue-10);\n}\n.node-content .logic-type .key[data-v-62a95ca1]:hover {\n  background-color: var(--blue-25);\n}\n.node-content .logic-type.or .key[data-v-62a95ca1] {\n  color: var(--orange-125);\n  background-color: var(--orange-10);\n}\n.node-content .logic-type.or .key[data-v-62a95ca1]:hover {\n  background-color: var(--orange-25);\n}\n.node-content .logic-type.none .key[data-v-62a95ca1] {\n  color: var(--red-125);\n  background-color: var(--red-10);\n}\n.node-content .logic-type.none .key[data-v-62a95ca1]:hover {\n  background-color: var(--red-25);\n}\n.node-content .nested-buttons[data-v-62a95ca1] {\n  padding: 0 10px;\n  margin-top: 8px;\n  margin-left: 10px;\n  font-weight: 600;\n}\n.node-content .nested-buttons .add-filter[data-v-62a95ca1] {\n  --v-select-placeholder-color: var(--secondary);\n}\n.node-content .name[data-v-62a95ca1],\n.node-content .comparator[data-v-62a95ca1] {\n  position: relative;\n  z-index: 2;\n  display: inline-block;\n  margin-right: 8px;\n}\n.node-content .name[data-v-62a95ca1]::before,\n.node-content .comparator[data-v-62a95ca1]::before {\n  position: absolute;\n  top: 0px;\n  left: -4px;\n  z-index: -1;\n  width: calc(100% + 8px);\n  height: 100%;\n  background-color: var(--filter-background);\n  border-radius: 6px;\n  opacity: 0;\n  transition: opacity var(--fast) var(--transition);\n  content: \"\";\n  pointer-events: none;\n}\n.node-content .name[data-v-62a95ca1]:hover::before,\n.node-content .comparator[data-v-62a95ca1]:hover::before {\n  opacity: 1;\n}\n.node-content .comparator[data-v-62a95ca1] {\n  font-weight: 700;\n}\n.node-content .value[data-v-62a95ca1] {\n  color: var(--green);\n}\n.node-content .delete[data-v-62a95ca1] {\n  --v-icon-color: var(--filter-subdued);\n  --v-icon-color-hover: var(--danger);\n  position: absolute;\n  top: 50%;\n  left: 100%;\n  padding-left: 4px;\n  transform: translateY(-50%);\n  opacity: 0;\n  transition: opacity var(--fast) var(--transition);\n}\n.node-content:hover[data-v-62a95ca1] {\n  border-color: var(--filter-border--hover);\n}\n.node-content:hover .delete[data-v-62a95ca1], .node-content:hover[data-v-62a95ca1]:hover {\n  opacity: 1;\n}\n.node-content .drag-handle[data-v-62a95ca1] {\n  --v-icon-color: var(--filter-subdued);\n  margin-right: 4px;\n  cursor: grab;\n}\n.node-content.inline[data-v-62a95ca1] {\n  width: auto;\n  margin-right: 0;\n  padding-right: 12px;\n}\n.node-content.inline .delete[data-v-62a95ca1] {\n  right: 8px;\n  left: unset;\n  background-color: var(--filter-background);\n}\n\n.row.disabled .drag-handle[data-v-62a95ca1],\n.row.disabled .delete[data-v-62a95ca1] {\n  display: none;\n}\n\n.group[data-v-62a95ca1] .sortable-ghost .node .node-content {\n  background-color: var(--primary-alt);\n  border-color: var(--primary);\n}\n.group[data-v-62a95ca1] .sortable-ghost .node .node-content > * {\n  opacity: 0;\n}";
+var css$2 = ".node-content[data-v-362459c5] {\n  position: relative;\n  display: flex;\n  align-items: center;\n  width: fit-content;\n  margin-right: 18px;\n  margin-bottom: 8px;\n  padding: 2px 6px;\n  padding-right: 8px;\n  background-color: var(--filter-background);\n  border: var(--filter-border-width) solid var(--filter-border-color);\n  border-radius: 100px;\n  transition: border-color var(--fast) var(--transition);\n}\n.node-content .logic-type[data-v-362459c5] {\n  color: var(--filter-subdued);\n}\n.node-content .logic-type .key[data-v-362459c5] {\n  margin-right: 4px;\n  padding: 2px 6px;\n  border-radius: 6px;\n  cursor: pointer;\n  transition: var(--fast) var(--transition);\n  transition-property: color, background-color;\n  color: var(--blue-125);\n  background-color: var(--blue-10);\n}\n.node-content .logic-type .key[data-v-362459c5]:hover {\n  background-color: var(--blue-25);\n}\n.node-content .logic-type.or .key[data-v-362459c5] {\n  color: var(--orange-125);\n  background-color: var(--orange-10);\n}\n.node-content .logic-type.or .key[data-v-362459c5]:hover {\n  background-color: var(--orange-25);\n}\n.node-content .logic-type.none .key[data-v-362459c5] {\n  color: var(--red-125);\n  background-color: var(--red-10);\n}\n.node-content .logic-type.none .key[data-v-362459c5]:hover {\n  background-color: var(--red-25);\n}\n.node-content .add-sub-filter[data-v-362459c5] {\n  padding: 0 10px;\n  margin-left: 10px;\n  font-weight: 500;\n}\n.node-content .add-sub-filter .add-filter[data-v-362459c5] {\n  --v-select-placeholder-color: var(--secondary);\n}\n.node-content .name[data-v-362459c5],\n.node-content .comparator[data-v-362459c5] {\n  position: relative;\n  z-index: 2;\n  display: inline-block;\n  margin-right: 8px;\n}\n.node-content .name[data-v-362459c5]::before,\n.node-content .comparator[data-v-362459c5]::before {\n  position: absolute;\n  top: 0px;\n  left: -4px;\n  z-index: -1;\n  width: calc(100% + 8px);\n  height: 100%;\n  background-color: var(--filter-background);\n  border-radius: 6px;\n  opacity: 0;\n  transition: opacity var(--fast) var(--transition);\n  content: \"\";\n  pointer-events: none;\n}\n.node-content .name[data-v-362459c5]:hover::before,\n.node-content .comparator[data-v-362459c5]:hover::before {\n  opacity: 1;\n}\n.node-content .comparator[data-v-362459c5] {\n  font-weight: 700;\n}\n.node-content .value[data-v-362459c5] {\n  color: var(--green);\n}\n.node-content .delete[data-v-362459c5] {\n  --v-icon-color: var(--filter-subdued);\n  --v-icon-color-hover: var(--danger);\n  position: absolute;\n  top: 50%;\n  left: 100%;\n  padding-left: 4px;\n  transform: translateY(-50%);\n  opacity: 0;\n  transition: opacity var(--fast) var(--transition);\n}\n.node-content:hover[data-v-362459c5] {\n  border-color: var(--filter-border--hover);\n}\n.node-content:hover .delete[data-v-362459c5], .node-content:hover[data-v-362459c5]:hover {\n  opacity: 1;\n}\n.node-content .drag-handle[data-v-362459c5] {\n  --v-icon-color: var(--filter-subdued);\n  margin-right: 4px;\n  cursor: grab;\n}\n.node-content.inline[data-v-362459c5] {\n  width: auto;\n  margin-right: 0;\n  padding-right: 12px;\n}\n.node-content.inline .delete[data-v-362459c5] {\n  right: 8px;\n  left: unset;\n  background-color: var(--filter-background);\n}\n\n.row.disabled .drag-handle[data-v-362459c5],\n.row.disabled .delete[data-v-362459c5] {\n  display: none;\n}\n\n.group[data-v-362459c5] .sortable-ghost .node .node-content {\n  background-color: var(--primary-alt);\n  border-color: var(--primary);\n}\n.group[data-v-362459c5] .sortable-ghost .node .node-content > * {\n  opacity: 0;\n}";
 n(css$2,{});
 
-var Nodes = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["__scopeId", "data-v-62a95ca1"], ["__file", "nodes.vue"]]);
+var Nodes = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["__scopeId", "data-v-362459c5"], ["__file", "nodes.vue"]]);
 
 const _hoisted_1 = { class: "buttons" };
 const _hoisted_2 = { class: "buttons" };
@@ -10160,6 +10210,7 @@ var _sfc_main = /* @__PURE__ */ defineComponent({
             let specialChildren;
             if (propValue.__isMultipleRelationship === true) {
               specialChildren = [
+                { key: `${key}.$count`, name: "# Count", operator: "count", selectable: true },
                 { key: `${key}.$none`, name: "\u2205 None", operator: "_none", selectable: true },
                 { divider: true }
               ];
@@ -10193,6 +10244,11 @@ var _sfc_main = /* @__PURE__ */ defineComponent({
       } else if (key.endsWith(".$none")) {
         const fieldPath = key.replace(/\.\$none$/, "");
         const node = set({}, fieldPath, { _none: [] });
+        innerValue.value = innerValue.value.concat(node);
+      } else if (key.endsWith(".$count")) {
+        const fieldPath = key.replace(/\.\$count$/, "");
+        const countKey = `count(${fieldPath})`;
+        const node = { [countKey]: { _eq: null } };
         innerValue.value = innerValue.value.concat(node);
       } else {
         const node = set({}, key, { ["_eq"]: null });
@@ -10338,10 +10394,10 @@ var _sfc_main = /* @__PURE__ */ defineComponent({
 var css$1 = "\n.v-list.list {\n\t--v-list-min-width: 148px;\n}\n.rules-filter-interface {\n\t--filter-background: var(--theme--background);\n\t--filter-color: var(--theme--foreground);\n\t--filter-subdued: var(--theme--foreground-subdued);\n\t--filter-border-width: var(--theme--border-width);\n\t--filter-border-color: var(--theme--form--field--input--border-color);\n\t--filter-border--hover: var(--theme--form--field--input--border-color-hover);\n\t--filter-padding: var(--theme--form--field--input--padding, 8px);\n}\n";
 n(css$1,{});
 
-var css = ".rules-filter-interface [data-v-47994ab2] ul, .rules-filter-interface [data-v-47994ab2] li {\n  list-style: none;\n}\n.rules-filter-interface [data-v-47994ab2] .group {\n  margin-left: 18px;\n  padding-left: 10px;\n  border-left: var(--filter-border-width) solid var(--filter-border-color);\n}\n.rules-filter-interface [data-v-47994ab2] .node-content .v-select.comparator .inline-display, .rules-filter-interface [data-v-47994ab2] .node-content .v-select.name .inline-display {\n  padding-right: 0;\n}\n.rules-filter-interface [data-v-47994ab2] .node-content .v-select.comparator .inline-display span.v-icon, .rules-filter-interface [data-v-47994ab2] .node-content .v-select.name .inline-display span.v-icon {\n  display: none;\n}\n.rules-filter-interface .v-list[data-v-47994ab2] {\n  margin: 0px 0px 10px;\n  padding: var(--filter-padding);\n  border: var(--filter-border-width) solid var(--filter-border-color);\n}\n.rules-filter-interface .v-list[data-v-47994ab2] > .group {\n  margin-left: 0px;\n  padding-left: 0px;\n  border-left: none;\n}\n.rules-filter-interface .buttons[data-v-47994ab2] {\n  padding: 0 10px;\n  font-weight: 600;\n}\n.rules-filter-interface .add-filter[data-v-47994ab2] {\n  --v-select-placeholder-color: var(--primary);\n}\n.rules-filter-interface.inline .v-list[data-v-47994ab2] {\n  margin: 0;\n  padding: 0;\n  border: 0;\n}\n.rules-filter-interface.inline.empty .v-list[data-v-47994ab2] {\n  display: none;\n}\n.rules-filter-interface.inline .buttons[data-v-47994ab2] {\n  margin: 0;\n  padding: 0;\n}\n.rules-filter-interface.inline .add-filter[data-v-47994ab2] {\n  width: 100%;\n}\n.rules-filter-interface.inline .add-filter [data-v-47994ab2] .v-input {\n  position: relative;\n  width: 100%;\n  height: 30px;\n  padding: 0;\n  background-color: var(--theme--background);\n  color: var(--theme--forground);\n  border: var(--filter-border-width) solid var(--filter-border-color);\n  border-radius: 100px;\n  transition: border-color var(--fast) var(--transition);\n}\n.rules-filter-interface.inline .add-filter [data-v-47994ab2] .v-input .input {\n  padding-right: 5px;\n  padding-left: 6px;\n  background: transparent;\n  border: 0;\n}\n.rules-filter-interface.inline .add-filter [data-v-47994ab2] .v-input .input .prepend {\n  margin-right: 4px;\n}\n.rules-filter-interface.disabled .buttons[data-v-47994ab2] {\n  display: none;\n}";
+var css = ".rules-filter-interface [data-v-5ae165e0] ul, .rules-filter-interface [data-v-5ae165e0] li {\n  list-style: none;\n}\n.rules-filter-interface [data-v-5ae165e0] .group {\n  margin-left: 18px;\n  padding-left: 10px;\n  border-left: var(--filter-border-width) solid var(--filter-border-color);\n}\n.rules-filter-interface [data-v-5ae165e0] .node-content .v-select.comparator .inline-display, .rules-filter-interface [data-v-5ae165e0] .node-content .v-select.name .inline-display {\n  padding-right: 0;\n}\n.rules-filter-interface [data-v-5ae165e0] .node-content .v-select.comparator .inline-display span.v-icon, .rules-filter-interface [data-v-5ae165e0] .node-content .v-select.name .inline-display span.v-icon {\n  display: none;\n}\n.rules-filter-interface .v-list[data-v-5ae165e0] {\n  margin: 0px 0px 10px;\n  padding: var(--filter-padding);\n  border: var(--filter-border-width) solid var(--filter-border-color);\n}\n.rules-filter-interface .v-list[data-v-5ae165e0] > .group {\n  margin-left: 0px;\n  padding-left: 0px;\n  border-left: none;\n}\n.rules-filter-interface .buttons[data-v-5ae165e0] {\n  padding: 0 10px;\n  font-weight: 600;\n}\n.rules-filter-interface .add-filter[data-v-5ae165e0] {\n  --v-select-placeholder-color: var(--primary);\n}\n.rules-filter-interface.inline .v-list[data-v-5ae165e0] {\n  margin: 0;\n  padding: 0;\n  border: 0;\n}\n.rules-filter-interface.inline.empty .v-list[data-v-5ae165e0] {\n  display: none;\n}\n.rules-filter-interface.inline .buttons[data-v-5ae165e0] {\n  margin: 0;\n  padding: 0;\n}\n.rules-filter-interface.inline .add-filter[data-v-5ae165e0] {\n  width: 100%;\n}\n.rules-filter-interface.inline .add-filter [data-v-5ae165e0] .v-input {\n  position: relative;\n  width: 100%;\n  height: 30px;\n  padding: 0;\n  background-color: var(--theme--background);\n  color: var(--theme--forground);\n  border: var(--filter-border-width) solid var(--filter-border-color);\n  border-radius: 100px;\n  transition: border-color var(--fast) var(--transition);\n}\n.rules-filter-interface.inline .add-filter [data-v-5ae165e0] .v-input .input {\n  padding-right: 5px;\n  padding-left: 6px;\n  background: transparent;\n  border: 0;\n}\n.rules-filter-interface.inline .add-filter [data-v-5ae165e0] .v-input .input .prepend {\n  margin-right: 4px;\n}\n.rules-filter-interface.disabled .buttons[data-v-5ae165e0] {\n  display: none;\n}";
 n(css,{});
 
-var InterfaceComponent = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-47994ab2"], ["__file", "interface.vue"]]);
+var InterfaceComponent = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-5ae165e0"], ["__file", "interface.vue"]]);
 
 var index = defineInterface({
   id: "filters",
