@@ -3,7 +3,7 @@ import { clone, get } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import IntlInfo from '../intl';
-import { fieldToFilter, getComparator, getField } from '../utils';
+import { fieldToFilter, findFieldByPath, getComparator, getField } from '../utils';
 import InputComponent from './input-component.vue';
 
 const props = defineProps({
@@ -33,7 +33,15 @@ const fieldInfo = computed(() => {
 		}
 	}
 
-	return get(props.tree, fieldPath);
+	// Use findFieldByPath to handle fields inside groups
+	const fieldInfo = findFieldByPath(props.tree, fieldPath);
+
+	// If not found and we have a simple field name (no dots), try a fallback with get
+	if (!fieldInfo && !fieldPath.includes('.')) {
+		return get(props.tree, fieldPath);
+	}
+
+	return fieldInfo;
 });
 
 const continents = {

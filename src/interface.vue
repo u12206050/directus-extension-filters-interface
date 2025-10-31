@@ -67,7 +67,7 @@ function buildPropertiesFromCollection(
 	visitedCollections: Set<string> = new Set()
 ): Record<string, any> {
 	// Prevent infinite recursion and limit depth to 3 levels
-	if (depth >= 3 || visitedCollections.has(collectionName)) {
+	if (depth >= 4 || visitedCollections.has(collectionName)) {
 		return {};
 	}
 
@@ -83,28 +83,17 @@ function buildPropertiesFromCollection(
 
 	const properties: Record<string, any> = {};
 
-	fields.forEach((field: any) => {
-		// Skip system fields and alias groups
-		if (field.field.startsWith('$')) return;
-		if (field.type === 'alias' && field.meta?.special?.includes('group')) return;
-
+	// Helper to process a single field into properties (respects relationships)
+	function processField(field: any, target: Record<string, any>) {
 		const special = field.meta?.special;
 		let relatedCollection = null;
 
-		// Debug logging for first level
-		if (depth === 0) {
-			console.log(`Field: ${field.field}, Type: ${field.type}, Special: ${special?.join(', ') || 'none'}`);
-		}
-
-		// Handle different relationship types
 		if (special?.includes('m2o')) {
-			// Many-to-One: This collection has FK to another
 			const relations = relationsStore.getRelationsForField(collectionName, field.field);
 			if (relations?.[0]) {
 				relatedCollection = relations[0].related_collection || relations[0].meta?.one_collection;
 			}
 		} else if (special?.includes('o2m')) {
-			// One-to-Many: Another collection has FK to this one
 			const allRelations = relationsStore.relations;
 			const reverseRelation = allRelations.find(
 				(r: any) => r.meta?.one_field === field.field && r.meta?.one_collection === collectionName
@@ -113,14 +102,11 @@ function buildPropertiesFromCollection(
 				relatedCollection = reverseRelation.collection;
 			}
 		} else if (special?.includes('m2m')) {
-			// Many-to-Many: Goes through a junction table
 			const allRelations = relationsStore.relations;
 			const reverseRelation = allRelations.find(
 				(r: any) => r.meta?.one_field === field.field && r.meta?.one_collection === collectionName
 			);
 			if (reverseRelation) {
-				// reverseRelation.collection is the junction table
-				// Find the other side of the junction
 				const junctionCollection = reverseRelation.collection;
 				const junctionRelations = relationsStore.getRelationsForCollection(junctionCollection);
 				const otherSide = junctionRelations.find(
@@ -131,55 +117,85 @@ function buildPropertiesFromCollection(
 				}
 			}
 		} else {
-			// Regular FK field (not alias)
 			const relations = relationsStore.getRelationsForField(collectionName, field.field);
 			if (relations?.[0]) {
 				relatedCollection = relations[0].related_collection || relations[0].meta?.one_collection;
 			}
 		}
 
-		if (depth === 0 && relatedCollection) {
-			console.log(`  → Related to: ${relatedCollection}`);
-		}
-
-		// If we found a related collection, build nested properties
 		if (relatedCollection && relatedCollection !== collectionName) {
 			const nestedProps = buildPropertiesFromCollection(relatedCollection, depth + 1, currentVisited);
-
 			if (Object.keys(nestedProps).length > 0) {
-				// For relationship fields, use ONLY nested properties (no 'type' property)
-				// This enables _some/_none operators
-				// Store the display name separately to avoid collision with nested field named "name"
-				// Store relationship type to determine if _none is applicable
 				const isMultipleRelationship = special?.includes('o2m') || special?.includes('m2m');
-
-				properties[field.field] = {
+				target[field.field] = {
 					...nestedProps,
 					__displayName: typeof field.name === 'string' ? field.name : field.field,
 					__isMultipleRelationship: isMultipleRelationship,
 				};
-
-				if (depth === 0) {
-					console.log(
-						`  ✅ Added nested properties with ${Object.keys(nestedProps).length} fields (${special?.join(', ')})`
-					);
-				}
 			}
 		} else {
-			// Regular field (not a relation)
-			// Ensure name is always a string
 			const fieldName = typeof field.name === 'string' ? field.name : field.field;
-
-			properties[field.field] = {
+			target[field.field] = {
 				name: fieldName,
 				type: field.type,
 			};
-
-			// Add choices if they exist
 			if (field.meta?.options?.choices) {
-				properties[field.field].choices = field.meta.options.choices;
+				target[field.field].choices = field.meta.options.choices;
 			}
 		}
+	}
+
+	// Sort fields by schema sort order
+	const sortedFields = [...fields].sort((a: any, b: any) => {
+		const sa = a?.meta?.sort ?? 0;
+		const sb = b?.meta?.sort ?? 0;
+		return sa - sb;
+	});
+
+	const createdGroups = new Set<string>();
+
+	sortedFields.forEach((field: any) => {
+		// Skip system fields
+		if (typeof field?.field !== 'string' || field.field.startsWith('$')) return;
+
+		const isGroup = field.type === 'alias' && field.meta?.special?.includes('group');
+		const groupKey = field.meta?.group;
+
+		// If this is a group, create a non-selectable container and add its members
+		if (isGroup) {
+			if (createdGroups.has(field.field)) return;
+			createdGroups.add(field.field);
+
+			const container: Record<string, any> = {
+				__displayName: typeof field.name === 'string' ? field.name : field.field,
+				__isGroup: true,
+			};
+
+			// Add members of this group in the same sorted order
+			sortedFields.forEach((member: any) => {
+				if (
+					typeof member?.field === 'string' &&
+					!member.field.startsWith('$') &&
+					member.meta?.group === field.field &&
+					!(member.type === 'alias' && member.meta?.special?.includes('group'))
+				) {
+					processField(member, container);
+				}
+			});
+
+			// Only add the group if it has children
+			const hasChildren = Object.keys(container).some(k => !k.startsWith('__'));
+			if (hasChildren) {
+				properties[field.field] = container;
+			}
+			return;
+		}
+
+		// If the field belongs to a group, it will be handled when that group is processed
+		if (typeof groupKey === 'string' && groupKey.length > 0) return;
+
+		// Otherwise, process as a top-level field
+		processField(field, properties);
 	});
 
 	return properties;
@@ -230,7 +246,7 @@ const fieldOptions = computed(() => {
 	return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }, ...(branches.value || [])];
 });
 
-function objectToTree(obj, prefix = '') {
+function objectToTree(obj: Record<string, any>, prefix: string = '') {
 	return Object.keys(obj)
 		.map(k => {
 			const propValue = obj[k];
@@ -276,12 +292,35 @@ function objectToTree(obj, prefix = '') {
 						key,
 						name: fieldName,
 					};
+				} else if (propValue.__isGroup === true) {
+					// UI-only group: do not include group key in the path for its children
+					const allNestedChildren: any[] = objectToTree(propValue, prefix);
+					const nestedChildren = allNestedChildren.filter(child => {
+						if (!child || typeof child.key !== 'string') return false;
+						// Filter out internal meta keys that might have bubbled up
+						const k = child.key;
+						if (k === '__displayName' || k === '__isMultipleRelationship' || k === '__isGroup') return false;
+						if (k.endsWith('.__displayName') || k.endsWith('.__isMultipleRelationship') || k.endsWith('.__isGroup'))
+							return false;
+						return true;
+					});
+
+					const groupName = typeof propValue.__displayName === 'string' ? propValue.__displayName : k;
+					return {
+						key: `group:${key}`,
+						name: groupName,
+						children: nestedChildren,
+					};
 				} else {
 					// Relationship field with nested properties
 					// Filter out special internal properties from nested children
 					const allNestedChildren: any[] = objectToTree(propValue, key);
 					const nestedChildren = allNestedChildren.filter(
-						child => child && child.key !== `${key}.__displayName` && child.key !== `${key}.__isMultipleRelationship`
+						child =>
+							child &&
+							child.key !== `${key}.__displayName` &&
+							child.key !== `${key}.__isMultipleRelationship` &&
+							child.key !== `${key}.__isGroup`
 					);
 
 					// Add special options at the top for o2m/m2m relationship operators only
@@ -330,7 +369,7 @@ function emitValue() {
 	}
 }
 
-function addNode(key) {
+function addNode(key: string) {
 	if (key === '$group') {
 		innerValue.value = innerValue.value.concat({ _and: [] });
 	} else if (key.endsWith('.$none')) {
@@ -351,17 +390,17 @@ function addNode(key) {
 	}
 }
 
-function removeNode(ids) {
+function removeNode(ids: Array<string | number>) {
 	const id = ids.pop();
 
 	if (ids.length === 0) {
-		innerValue.value = innerValue.value.filter((node, index) => index !== Number(id));
+		innerValue.value = innerValue.value.filter((_: any, index: number) => index !== Number(id));
 		return;
 	}
 
 	let list = get(innerValue.value, ids.join('.'));
 
-	list = list.filter((node, index) => index !== Number(id));
+	list = list.filter((_: any, index: number) => index !== Number(id));
 
 	innerValue.value = set(innerValue.value, ids.join('.'), list);
 }

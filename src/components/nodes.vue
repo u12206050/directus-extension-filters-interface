@@ -10,7 +10,8 @@
 		:item-key="getIndex"
 		:swap-threshold="0.3"
 		:force-fallback="true"
-		@change="$emit('change')"
+		@change="handleDragChange"
+		@add="handleDragAdd"
 	>
 		<template #item="{ element, index }">
 			<li class="row" :class="{ disabled }">
@@ -91,11 +92,7 @@
 								class="add-filter"
 								:placeholder="t('interfaces.filter.add_filter')"
 								:model-value="null"
-								:items="[
-									{ key: '$group', name: t('interfaces.filter.add_group') },
-									{ divider: true },
-									...getNoneGroupBranches(filterInfo[index]),
-								]"
+								:items="getNoneGroupItems(filterInfo[index])"
 								:mandatory="false"
 								:groups-clickable="true"
 								@update:modelValue="addNoneGroupFilter(index, filterInfo[index], $event)"
@@ -109,6 +106,9 @@
 						:inline="inline"
 						:tree="getNoneGroupTree(filterInfo[index])"
 						:branches="getNoneGroupBranches(filterInfo[index])"
+						:parent-none-relationship="
+							filterInfo[index].isNone ? filterInfo[index].relationshipField : parentNoneRelationship
+						"
 						@change="$emit('change')"
 						@remove-node="
 							$emit('remove-node', [
@@ -130,7 +130,7 @@ import { get, set } from 'lodash-es';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Draggable from 'vuedraggable';
-import { fieldToFilter, getComparator, getField, getNodeName } from '../utils';
+import { fieldToFilter, findFieldByPath, getComparator, getField, getNodeName } from '../utils';
 import InputGroup from './input-group.vue';
 
 const { t } = useI18n();
@@ -154,9 +154,13 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	parentNoneRelationship: {
+		type: String,
+		default: null,
+	},
 });
 
-const emit = defineEmits(['remove-node', 'update:filter', 'change']);
+const emit = defineEmits(['remove-node', 'update:filter', 'change', 'add-to-none-group']);
 
 const filterSync = computed({
 	get() {
@@ -228,8 +232,36 @@ function prettyPath(path: string) {
 	const fieldParts = path.split('.');
 
 	const fieldNames = fieldParts.map((fieldKey, index) => {
-		const pathPrefix = fieldParts.slice(0, index);
-		const field = get(props.tree, [...pathPrefix, fieldKey].join('.'));
+		// Check if this segment is a function call like year(dob)
+		const functionMatch = fieldKey.match(/^(\w+)\((.+)\)$/);
+		if (functionMatch && functionMatch[1] && functionMatch[2]) {
+			const funcName = functionMatch[1];
+			const innerFieldPath = functionMatch[2];
+
+			// Build the full path up to this point (excluding the function part)
+			const pathPrefix = fieldParts.slice(0, index);
+
+			// For the inner field path, we need to resolve it relative to the tree at this point
+			// If innerFieldPath has dots (like "person.dob"), we need to resolve each part
+			const innerParts = innerFieldPath.split('.');
+
+			// Now resolve the inner field path from the current tree position
+			let displayParts: string[] = [];
+			for (let i = 0; i < innerParts.length; i++) {
+				const innerPart = innerParts[i];
+				const innerPrefix = innerParts.slice(0, i);
+				const fullPath = [...pathPrefix, ...innerPrefix, innerPart].join('.');
+				const field = findFieldByPath(props.tree, fullPath);
+				displayParts.push(field?.__displayName || field?.name || innerPart);
+			}
+
+			const innerDisplay = displayParts.join(' -> ');
+			return `${innerDisplay} (${funcName})`;
+		}
+
+		// Regular field segment - build path up to this point
+		const pathUpToHere = fieldParts.slice(0, index + 1).join('.');
+		const field = findFieldByPath(props.tree, pathUpToHere);
 		return (field?.__displayName || field?.name) ?? fieldKey;
 	});
 
@@ -252,7 +284,7 @@ function getLogicLabel(nodeInfo: any): string {
 }
 
 function relationshipDisplayName(nodeInfo: any): string {
-	const relationshipTree = get(props.tree, nodeInfo.relationshipField);
+	const relationshipTree = findFieldTree(props.tree, nodeInfo.relationshipField);
 	return relationshipTree?.__displayName || relationshipTree?.name || nodeInfo.relationshipField;
 }
 
@@ -316,12 +348,14 @@ function getNoneGroupFilters(element: any, nodeInfo: any) {
 
 function getNoneGroupTree(nodeInfo: any) {
 	if (nodeInfo.isNone) {
-		// Get the nested tree for the relationship field
-		const relationshipTree = get(props.tree, nodeInfo.relationshipField);
-		if (relationshipTree && typeof relationshipTree === 'object' && !relationshipTree.type) {
+		// Get the nested tree for the relationship field (supports grouped trees)
+		const relationshipTree = findFieldTree(props.tree, nodeInfo.relationshipField);
+		// Check if this is a relationship container (has nested fields) vs a leaf field (has type as string)
+		if (relationshipTree && typeof relationshipTree === 'object' && typeof relationshipTree.type !== 'string') {
 			const tree = { ...relationshipTree };
 			delete tree.__displayName;
 			delete tree.__isMultipleRelationship;
+			delete tree.__isGroup;
 			return tree;
 		}
 		return {};
@@ -329,14 +363,27 @@ function getNoneGroupTree(nodeInfo: any) {
 	return props.tree;
 }
 
+function getNoneGroupItems(nodeInfo: any) {
+	if (!nodeInfo || !nodeInfo.isNone) {
+		return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }];
+	}
+
+	const branches = getNoneGroupBranches(nodeInfo) || [];
+	return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }, ...branches];
+}
+
 function getNoneGroupBranches(nodeInfo: any) {
 	if (nodeInfo.isNone) {
-		// Build branches from the relationship tree
-		const relationshipTree = get(props.tree, nodeInfo.relationshipField);
-		if (relationshipTree && typeof relationshipTree === 'object' && !relationshipTree.type) {
+		// Build branches from the relationship tree (supports grouped trees)
+		const relationshipTree = findFieldTree(props.tree, nodeInfo.relationshipField);
+
+		// Check if this is a relationship container (has nested fields) vs a leaf field (has type as string)
+		if (relationshipTree && typeof relationshipTree === 'object' && typeof relationshipTree.type !== 'string') {
 			const tree = { ...relationshipTree };
 			delete tree.__displayName;
 			delete tree.__isMultipleRelationship;
+			delete tree.__isGroup;
+
 			return objectToTree(tree);
 		}
 		return [];
@@ -345,21 +392,41 @@ function getNoneGroupBranches(nodeInfo: any) {
 }
 
 function objectToTree(obj: any, prefix = ''): any[] {
+	if (!obj || typeof obj !== 'object') return [];
+
 	return Object.keys(obj)
 		.map(k => {
 			const propValue = obj[k];
+
+			// Skip internal metadata keys at the top level
+			if (k.startsWith('__')) return null;
+
 			const key = [prefix, k].filter(Boolean).join('.');
 
-			if (typeof propValue === 'object') {
+			if (typeof propValue === 'object' && propValue !== null) {
 				if (typeof propValue.type === 'string') {
+					// This is a leaf field with a type
 					return {
 						key,
 						name: typeof propValue.name === 'string' ? propValue.name : k,
 					};
-				} else {
-					const nestedChildren: any[] = objectToTree(propValue, key);
+				} else if (propValue.__isGroup === true) {
+					// UI-only group: don't include in path
+					const allNestedChildren: any[] = objectToTree(propValue, prefix);
+					const nestedChildren = allNestedChildren.filter(child => {
+						if (!child || typeof child.key !== 'string') return false;
+						const ck = child.key;
+						if (ck === '__displayName' || ck === '__isMultipleRelationship' || ck === '__isGroup') return false;
+						if (ck.endsWith('.__displayName') || ck.endsWith('.__isMultipleRelationship') || ck.endsWith('.__isGroup'))
+							return false;
+						return true;
+					});
+
+					// Only return group if it has children
+					if (nestedChildren.length === 0) return null;
+
 					return {
-						key,
+						key: `group:${key}`,
 						name:
 							typeof propValue.__displayName === 'string'
 								? propValue.__displayName
@@ -368,12 +435,73 @@ function objectToTree(obj: any, prefix = ''): any[] {
 								: k,
 						children: nestedChildren,
 					};
+				} else {
+					// Relationship field or nested structure
+					const nestedChildren: any[] = objectToTree(propValue, key);
+
+					// Only return if it has children or is a selectable field
+					if (nestedChildren.length === 0 && !propValue.type) return null;
+
+					return {
+						key,
+						name:
+							typeof propValue.__displayName === 'string'
+								? propValue.__displayName
+								: typeof propValue.name === 'string'
+								? propValue.name
+								: k,
+						children: nestedChildren.length > 0 ? nestedChildren : undefined,
+					};
 				}
 			}
 
 			return null;
 		})
 		.filter(Boolean);
+}
+
+// Recursively find a field tree anywhere within the object, navigating through groups
+function findFieldTree(obj: any, target: string): any | null {
+	if (!obj || typeof obj !== 'object') return null;
+
+	// First check if the field exists directly at this level
+	if (Object.prototype.hasOwnProperty.call(obj, target)) {
+		return obj[target];
+	}
+
+	// Search recursively through all object properties
+	for (const key of Object.keys(obj)) {
+		// Skip internal metadata keys themselves (don't treat __displayName as a searchable field)
+		if (key.startsWith('__')) continue;
+
+		const val = obj[key];
+		if (!val || typeof val !== 'object') continue;
+
+		// Explicitly check if this key matches the target (could be a relationship field)
+		if (key === target) {
+			return val;
+		}
+
+		// Skip leaf fields that have a type (these are terminal fields, not containers)
+		if (typeof val.type === 'string') continue;
+
+		// Check if this is a group - search within it explicitly
+		if (val.__isGroup === true) {
+			// Search within the group for the target field
+			if (Object.prototype.hasOwnProperty.call(val, target)) {
+				return val[target];
+			}
+			// Also recursively search within the group
+			const foundInGroup = findFieldTree(val, target);
+			if (foundInGroup) return foundInGroup;
+		}
+
+		// Recursively search within this object (could be a relationship or nested structure)
+		const found = findFieldTree(val, target);
+		if (found) return found;
+	}
+
+	return null;
 }
 
 function addNoneGroupFilter(index: number, nodeInfo: any, key: string) {
@@ -499,14 +627,36 @@ function updateField(index, newField) {
 	}
 
 	const nodeInfo = filterInfo.value[index];
-	const oldFieldInfo = get(props.tree, nodeInfo.name);
+	const oldFieldInfo = findFieldByPath(props.tree, nodeInfo.name);
 
 	// Handle function syntax like count(field) - these return numbers
 	const newFunctionMatch = newField.match(/^(\w+)\((.+)\)$/);
-	let newFieldInfo =
-		newFunctionMatch && newFunctionMatch[1] === 'count'
-			? { type: 'integer' } // count() returns integer
-			: get(props.tree, newField);
+	let newFieldInfo: any;
+	if (newFunctionMatch && newFunctionMatch[1] === 'count') {
+		newFieldInfo = { type: 'integer' }; // count() returns integer
+	} else if (newFunctionMatch && ['year', 'month', 'day', 'hour', 'minute', 'second'].includes(newFunctionMatch[1])) {
+		// dateTime functions return integers
+		newFieldInfo = { type: 'integer' };
+	} else {
+		// Extract field path if there's a nested function call (e.g., "person.year(dob)")
+		let fieldPathToLookup = newField;
+		const pathParts = newField.split('.');
+		const lastPart = pathParts[pathParts.length - 1];
+		const nestedFunctionMatch = lastPart.match(/^(\w+)\((.+)\)$/);
+		if (nestedFunctionMatch && nestedFunctionMatch[1] && nestedFunctionMatch[2]) {
+			// Replace function call with inner field path for lookup
+			pathParts[pathParts.length - 1] = nestedFunctionMatch[2];
+			fieldPathToLookup = pathParts.join('.');
+			// dateTime functions return integers
+			if (['year', 'month', 'day', 'hour', 'minute', 'second'].includes(nestedFunctionMatch[1])) {
+				newFieldInfo = { type: 'integer' };
+			} else {
+				newFieldInfo = findFieldByPath(props.tree, fieldPathToLookup);
+			}
+		} else {
+			newFieldInfo = findFieldByPath(props.tree, newField);
+		}
+	}
 
 	if (nodeInfo.isField === false) return;
 
@@ -538,11 +688,50 @@ function replaceNode(index, newFilter) {
 	});
 }
 
+function handleDragChange(evt: any) {
+	// If we're inside a NONE group, check if any items need conversion
+	if (props.parentNoneRelationship && evt.added) {
+		// An item was added - check if it belongs to this NONE group
+		const relationshipPath = props.parentNoneRelationship;
+		const newIndex = evt.added.newIndex;
+
+		if (typeof newIndex === 'number' && newIndex < filterSync.value.length) {
+			const addedItem = filterSync.value[newIndex];
+			const fieldPath = getField(addedItem);
+
+			if (fieldPath && fieldPath.startsWith(relationshipPath + '.')) {
+				// This item belongs to this NONE group - strip the prefix
+				const strippedFilters = stripRelationshipPrefix([addedItem], relationshipPath);
+				filterSync.value = filterSync.value.map((item: any, idx: number) =>
+					idx === newIndex ? strippedFilters[0] : item
+				);
+			} else if (fieldPath && !fieldPath.startsWith(relationshipPath + '.')) {
+				// Path doesn't match - remove it (prevent drop)
+				filterSync.value = filterSync.value.filter((_: any, idx: number) => idx !== newIndex);
+			}
+		}
+	}
+
+	emit('change');
+}
+
+function handleDragAdd(evt: any) {
+	// Trigger change handler which will validate
+	handleDragChange(evt);
+}
+
 function getCompareOptions(name) {
-	// Handle function syntax like count(field) - these return numbers
-	const functionMatch = name.match(/^(\w+)\((.+)\)$/);
-	if (functionMatch && functionMatch[1] && functionMatch[2]) {
-		const funcName = functionMatch[1];
+	// Handle function syntax like count(field) or year(dob) - extract the inner field path
+	let fieldPath = name;
+	let funcName = null;
+
+	// Check if the entire name is a function call
+	const topLevelFunctionMatch = name.match(/^(\w+)\((.+)\)$/);
+	if (topLevelFunctionMatch && topLevelFunctionMatch[1] && topLevelFunctionMatch[2]) {
+		funcName = topLevelFunctionMatch[1];
+		fieldPath = topLevelFunctionMatch[2];
+
+		// Handle known functions that return specific types
 		if (funcName === 'count') {
 			// count() returns an integer, so use all numeric operators
 			const operators = getFilterOperatorsForType('integer');
@@ -551,9 +740,44 @@ function getCompareOptions(name) {
 				value: `_${type}`,
 			}));
 		}
+		// dateTime functions like year(), month(), etc. return integers
+		if (['year', 'month', 'day', 'hour', 'minute', 'second'].includes(funcName)) {
+			const operators = getFilterOperatorsForType('integer');
+			return operators.map(type => ({
+				text: t(`operators.${type}`),
+				value: `_${type}`,
+			}));
+		}
 	}
 
-	const fieldInfo = get(props.tree, name);
+	// Check if there's a function call within a path (e.g., "person.year(dob)")
+	const pathParts = fieldPath.split('.');
+	const lastPart = pathParts[pathParts.length - 1];
+	const nestedFunctionMatch = lastPart.match(/^(\w+)\((.+)\)$/);
+	if (nestedFunctionMatch && nestedFunctionMatch[1] && nestedFunctionMatch[2]) {
+		funcName = nestedFunctionMatch[1];
+		// Replace the function part with the inner field path
+		pathParts[pathParts.length - 1] = nestedFunctionMatch[2];
+		fieldPath = pathParts.join('.');
+
+		// dateTime functions return integers
+		if (['year', 'month', 'day', 'hour', 'minute', 'second'].includes(funcName)) {
+			const operators = getFilterOperatorsForType('integer');
+			return operators.map(type => ({
+				text: t(`operators.${type}`),
+				value: `_${type}`,
+			}));
+		}
+	}
+
+	// Find the field using path-aware lookup (handles groups)
+	let fieldInfo = findFieldByPath(props.tree, fieldPath);
+
+	// If not found and we have a simple field name (no dots), try searching recursively
+	if (!fieldInfo && !fieldPath.includes('.')) {
+		fieldInfo = findFieldTree(props.tree, fieldPath);
+	}
+
 	if (!fieldInfo) return [];
 
 	let operators =
