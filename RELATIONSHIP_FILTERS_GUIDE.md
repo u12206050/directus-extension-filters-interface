@@ -149,9 +149,8 @@ Visual:
 
 ```
 🔴 Organizations - None of the following:
-   ├─ 🔵 All of the following:
-   │   ├─ Status Equals "active"
-   │   └─ Size Equals "large"
+   ├─ Status Equals "active"
+   └─ Size Equals "large"
 ```
 
 Generated Filter:
@@ -160,18 +159,14 @@ Generated Filter:
 {
 	"organizations": {
 		"_none": {
-			"_and": [
-				{
-					"status": { "_eq": "active" }
-				},
-				{
-					"size": { "_eq": "large" }
-				}
-			]
+			"status": { "_eq": "active" },
+			"size": { "_eq": "large" }
 		}
 	}
 }
 ```
+
+**Note**: When multiple filters are added to a `_none` group, they are merged into a flat object. The `_and` operator is not supported inside `_none` groups.
 
 ## Combining Count and None
 

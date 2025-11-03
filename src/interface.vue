@@ -409,18 +409,21 @@ function removeNode(ids: Array<string | number>) {
 
 	if (lastPart === '_none' || secondLastPart === '_none') {
 		// We're removing from a _none group
-		// _none can be: single object, { _and: [...] }, or array (old format)
+		// _none can be: flat object with multiple keys, single object, { _and: [...] } (old format), or array (old format)
 		let filters: any[];
 
 		if (Array.isArray(list)) {
 			// Old format: array
 			filters = list;
 		} else if (list && list._and && Array.isArray(list._and)) {
-			// New format with multiple filters: { _and: [...] }
+			// Old format: { _and: [...] }
 			filters = list._and;
-		} else if (list && typeof list === 'object') {
-			// Single filter: object
-			filters = [list];
+		} else if (list && typeof list === 'object' && Object.keys(list).length > 0) {
+			// Current format: flat object - split into individual filter objects
+			// Each top-level key becomes its own filter object
+			filters = Object.keys(list).map(key => {
+				return { [key]: list[key] };
+			});
 		} else {
 			// Invalid or empty
 			return;
@@ -430,13 +433,15 @@ function removeNode(ids: Array<string | number>) {
 		filters = filters.filter((_: any, index: number) => index !== Number(id));
 
 		// Reconstruct _none value based on remaining filters
+		// Multiple filters should be merged into a flat object (not wrapped in _and)
 		let noneValue: any;
 		if (filters.length === 0) {
 			noneValue = {};
 		} else if (filters.length === 1) {
 			noneValue = filters[0];
 		} else {
-			noneValue = { _and: filters };
+			// Merge multiple filters into a flat object
+			noneValue = Object.assign({}, ...filters);
 		}
 
 		// Update the _none value

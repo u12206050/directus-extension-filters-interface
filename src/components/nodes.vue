@@ -355,15 +355,22 @@ function getNoneGroupFilters(element: any, nodeInfo: any) {
 
 		// Handle different formats:
 		// 1. Array (old incorrect format - for backward compatibility)
-		// 2. Object with _and property (correct format for multiple filters)
-		// 3. Single object (correct format for single filter)
+		// 2. Object with _and property (old format - for backward compatibility)
+		// 3. Flat object with multiple keys (correct format for multiple filters)
+		// 4. Single object (correct format for single filter)
 		let filters: any[];
 		if (Array.isArray(rawFilters)) {
+			// Old format: array
 			filters = rawFilters.filter(f => f != null && typeof f === 'object');
 		} else if (rawFilters._and && Array.isArray(rawFilters._and)) {
+			// Old format: object with _and (for backward compatibility)
 			filters = rawFilters._and.filter(f => f != null && typeof f === 'object');
 		} else if (typeof rawFilters === 'object' && Object.keys(rawFilters).length > 0) {
-			filters = [rawFilters];
+			// Current format: flat object - split into individual filter objects
+			// Each top-level key becomes its own filter object
+			filters = Object.keys(rawFilters).map(key => {
+				return { [key]: rawFilters[key] };
+			});
 		} else {
 			return [];
 		}
@@ -396,8 +403,10 @@ function getNoneGroupItems(nodeInfo: any) {
 		return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }];
 	}
 
+	// For _none groups, don't include $group option since _and/_or are not supported inside _none
+	// Only flat object filters are supported
 	const branches = getNoneGroupBranches(nodeInfo) || [];
-	return [{ key: '$group', name: t('interfaces.filter.add_group') }, { divider: true }, ...branches];
+	return branches.length > 0 ? [{ divider: true }, ...branches] : branches;
 }
 
 function getNoneGroupBranches(nodeInfo: any) {
@@ -535,15 +544,15 @@ function findFieldTree(obj: any, target: string): any | null {
 function addNoneGroupFilter(index: number, nodeInfo: any, key: string) {
 	if (!nodeInfo.isNone) return;
 
-	const currentFilters = getNoneGroupFilters(filterSync.value[index], nodeInfo);
-	let newFilter;
-
+	// Don't allow $group (which creates _and/_or) inside _none groups
+	// _and/_or are not supported inside _none - only flat object filters
 	if (key === '$group') {
-		newFilter = { _and: [] };
-	} else {
-		// Create filter without the relationship prefix (it will be added when saving)
-		newFilter = set({}, key, { _eq: null });
+		return;
 	}
+
+	const currentFilters = getNoneGroupFilters(filterSync.value[index], nodeInfo);
+	// Create filter without the relationship prefix (it will be added when saving)
+	const newFilter = set({}, key, { _eq: null });
 
 	updateNoneGroup(index, nodeInfo, [...currentFilters, newFilter]);
 }
@@ -555,15 +564,18 @@ function updateNoneGroup(index: number, nodeInfo: any, newFilters: any[]) {
 		// Filters are relative to the relationship, so use them as-is
 
 		// Format _none according to Directus API expectations:
+		// - Multiple filters: merge into a flat object (not wrapped in _and)
 		// - Single filter: object directly
-		// - Multiple filters: object with _and array
+		// - Empty: empty object
 		let noneValue: any;
 		if (newFilters.length === 0) {
 			noneValue = {};
 		} else if (newFilters.length === 1) {
 			noneValue = newFilters[0];
 		} else {
-			noneValue = { _and: newFilters };
+			// Merge multiple filters into a flat object
+			// Each filter is an object with one key, so we merge all keys together
+			noneValue = Object.assign({}, ...newFilters);
 		}
 
 		// Update the _none group
