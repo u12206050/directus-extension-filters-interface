@@ -112,7 +112,7 @@ Generated Filter:
 {
 	"organizations": {
 		"_none": {
-			"organizations.name": {
+			"name": {
 				"_eq": "Acme"
 			}
 		}
@@ -135,7 +135,7 @@ Generated Filter:
 {
 	"organizations": {
 		"_none": {
-			"organizations.status": {
+			"status": {
 				"_eq": "active"
 			}
 		}
@@ -162,10 +162,10 @@ Generated Filter:
 		"_none": {
 			"_and": [
 				{
-					"organizations.status": { "_eq": "active" }
+					"status": { "_eq": "active" }
 				},
 				{
-					"organizations.size": { "_eq": "large" }
+					"size": { "_eq": "large" }
 				}
 			]
 		}
@@ -190,7 +190,7 @@ You can combine these features with other filters for powerful queries!
 		{
 			"organizations": {
 				"_none": {
-					"organizations.status": {
+					"status": {
 						"_eq": "active"
 					}
 				}

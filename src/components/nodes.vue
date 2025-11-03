@@ -290,27 +290,38 @@ function relationshipDisplayName(nodeInfo: any): string {
 
 function stripRelationshipPrefix(filters: any[], relationshipField: string): any[] {
 	// Strip the relationship field prefix from nested filters
-	return filters.map(filter => {
-		const name = getNodeName(filter);
+	return filters
+		.filter(filter => filter != null && typeof filter === 'object')
+		.map(filter => {
+			const name = getNodeName(filter);
 
-		// If it's a logical group, recursively process its contents
-		if (['_and', '_or', '_none'].includes(name)) {
-			return {
-				[name]: stripRelationshipPrefix(filter[name], relationshipField),
-			};
-		}
+			// Guard against undefined/null names
+			if (!name || typeof name !== 'string') {
+				return filter;
+			}
 
-		// If the field starts with the relationship prefix, strip it
-		if (name.startsWith(relationshipField + '.')) {
-			const strippedField = name.substring(relationshipField.length + 1);
-			return {
-				[strippedField]: filter[name],
-			};
-		}
+			// If it's a logical group, recursively process its contents
+			if (['_and', '_or', '_none'].includes(name)) {
+				const groupValue = filter[name];
+				if (Array.isArray(groupValue)) {
+					return {
+						[name]: stripRelationshipPrefix(groupValue, relationshipField),
+					};
+				}
+				return filter;
+			}
 
-		// Field doesn't have the prefix (already stripped or invalid)
-		return filter;
-	});
+			// If the field starts with the relationship prefix, strip it
+			if (name.startsWith(relationshipField + '.')) {
+				const strippedField = name.substring(relationshipField.length + 1);
+				return {
+					[strippedField]: filter[name],
+				};
+			}
+
+			// Field doesn't have the prefix (already stripped or invalid)
+			return filter;
+		});
 }
 
 function addRelationshipPrefix(filters: any[], relationshipField: string): any[] {
@@ -339,9 +350,26 @@ function addRelationshipPrefix(filters: any[], relationshipField: string): any[]
 
 function getNoneGroupFilters(element: any, nodeInfo: any) {
 	if (nodeInfo.isNone) {
-		const rawFilters = element[nodeInfo.name]._none || [];
+		const rawFilters = element[nodeInfo.name]?._none;
+		if (!rawFilters || typeof rawFilters !== 'object') return [];
+
+		// Handle different formats:
+		// 1. Array (old incorrect format - for backward compatibility)
+		// 2. Object with _and property (correct format for multiple filters)
+		// 3. Single object (correct format for single filter)
+		let filters: any[];
+		if (Array.isArray(rawFilters)) {
+			filters = rawFilters.filter(f => f != null && typeof f === 'object');
+		} else if (rawFilters._and && Array.isArray(rawFilters._and)) {
+			filters = rawFilters._and.filter(f => f != null && typeof f === 'object');
+		} else if (typeof rawFilters === 'object' && Object.keys(rawFilters).length > 0) {
+			filters = [rawFilters];
+		} else {
+			return [];
+		}
+
 		// Strip the relationship prefix from displayed filters
-		return stripRelationshipPrefix(Array.isArray(rawFilters) ? rawFilters : [rawFilters], nodeInfo.relationshipField);
+		return stripRelationshipPrefix(filters, nodeInfo.relationshipField);
 	}
 	return element[nodeInfo.name];
 }
@@ -522,15 +550,28 @@ function addNoneGroupFilter(index: number, nodeInfo: any, key: string) {
 
 function updateNoneGroup(index: number, nodeInfo: any, newFilters: any[]) {
 	if (nodeInfo.isNone) {
-		// Add the relationship prefix back to the filters before saving
-		const prefixedFilters = addRelationshipPrefix(newFilters, nodeInfo.relationshipField);
+		// For _none groups, filters should NOT have the relationship prefix
+		// The relationship context is already established by the outer key
+		// Filters are relative to the relationship, so use them as-is
+
+		// Format _none according to Directus API expectations:
+		// - Single filter: object directly
+		// - Multiple filters: object with _and array
+		let noneValue: any;
+		if (newFilters.length === 0) {
+			noneValue = {};
+		} else if (newFilters.length === 1) {
+			noneValue = newFilters[0];
+		} else {
+			noneValue = { _and: newFilters };
+		}
 
 		// Update the _none group
 		filterSync.value = filterSync.value.map((filter, filterIndex) => {
 			if (filterIndex === index) {
 				return {
 					[nodeInfo.relationshipField]: {
-						_none: prefixedFilters,
+						_none: noneValue,
 					},
 				};
 			}

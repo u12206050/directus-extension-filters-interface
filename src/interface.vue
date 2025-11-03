@@ -398,11 +398,62 @@ function removeNode(ids: Array<string | number>) {
 		return;
 	}
 
-	let list = get(innerValue.value, ids.join('.'));
+	const path = ids.join('.');
+	let list = get(innerValue.value, path);
 
-	list = list.filter((_: any, index: number) => index !== Number(id));
+	// Check if we're removing from a _none group
+	// The path might be like "0.relationshipField._none" or "0.relationshipField._none._and"
+	const pathParts = path.split('.');
+	const lastPart = pathParts[pathParts.length - 1];
+	const secondLastPart = pathParts[pathParts.length - 2];
 
-	innerValue.value = set(innerValue.value, ids.join('.'), list);
+	if (lastPart === '_none' || secondLastPart === '_none') {
+		// We're removing from a _none group
+		// _none can be: single object, { _and: [...] }, or array (old format)
+		let filters: any[];
+
+		if (Array.isArray(list)) {
+			// Old format: array
+			filters = list;
+		} else if (list && list._and && Array.isArray(list._and)) {
+			// New format with multiple filters: { _and: [...] }
+			filters = list._and;
+		} else if (list && typeof list === 'object') {
+			// Single filter: object
+			filters = [list];
+		} else {
+			// Invalid or empty
+			return;
+		}
+
+		// Remove the filter at the specified index
+		filters = filters.filter((_: any, index: number) => index !== Number(id));
+
+		// Reconstruct _none value based on remaining filters
+		let noneValue: any;
+		if (filters.length === 0) {
+			noneValue = {};
+		} else if (filters.length === 1) {
+			noneValue = filters[0];
+		} else {
+			noneValue = { _and: filters };
+		}
+
+		// Update the _none value
+		// The path to _none is everything except the last part if it was "_and"
+		let nonePath = path;
+		if (lastPart === '_and') {
+			nonePath = pathParts.slice(0, -1).join('.');
+		}
+		innerValue.value = set(innerValue.value, nonePath, noneValue);
+	} else {
+		// Normal removal for _and/_or groups
+		if (!Array.isArray(list)) {
+			return;
+		}
+		list = list.filter((_: any, index: number) => index !== Number(id));
+		innerValue.value = set(innerValue.value, path, list);
+	}
 }
 </script>
 
