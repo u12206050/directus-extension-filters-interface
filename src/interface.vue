@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useStores } from '@directus/extensions-sdk';
 import { cloneDeep, get, isEmpty, set } from 'lodash-es';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -31,7 +30,10 @@ const props = defineProps({
 
 const emit = defineEmits(['input']);
 const { t } = useI18n();
-const { useFieldsStore, useRelationsStore } = useStores();
+
+// When useCollection is set, we use Directus's built-in interface-system-filter
+// Otherwise, we use the custom properties-based approach
+const useSystemFilter = computed(() => !!props.useCollection);
 
 const innerValue = computed({
 	get() {
@@ -60,155 +62,14 @@ const innerValue = computed({
 	},
 });
 
-// Build properties from collection recursively (up to 3 levels)
-function buildPropertiesFromCollection(
-	collectionName: string,
-	depth: number = 0,
-	visitedCollections: Set<string> = new Set()
-): Record<string, any> {
-	// Prevent infinite recursion and limit depth to 3 levels
-	if (depth >= 4 || visitedCollections.has(collectionName)) {
-		return {};
-	}
-
-	const fieldsStore = useFieldsStore();
-	const relationsStore = useRelationsStore();
-	const fields = fieldsStore.getFieldsForCollection(collectionName);
-
-	if (!fields) return {};
-
-	// Mark this collection as visited
-	const currentVisited = new Set(visitedCollections);
-	currentVisited.add(collectionName);
-
-	const properties: Record<string, any> = {};
-
-	// Helper to process a single field into properties (respects relationships)
-	function processField(field: any, target: Record<string, any>) {
-		const special = field.meta?.special;
-		let relatedCollection = null;
-
-		if (special?.includes('m2o')) {
-			const relations = relationsStore.getRelationsForField(collectionName, field.field);
-			if (relations?.[0]) {
-				relatedCollection = relations[0].related_collection || relations[0].meta?.one_collection;
-			}
-		} else if (special?.includes('o2m')) {
-			const allRelations = relationsStore.relations;
-			const reverseRelation = allRelations.find(
-				(r: any) => r.meta?.one_field === field.field && r.meta?.one_collection === collectionName
-			);
-			if (reverseRelation) {
-				relatedCollection = reverseRelation.collection;
-			}
-		} else if (special?.includes('m2m')) {
-			const allRelations = relationsStore.relations;
-			const reverseRelation = allRelations.find(
-				(r: any) => r.meta?.one_field === field.field && r.meta?.one_collection === collectionName
-			);
-			if (reverseRelation) {
-				const junctionCollection = reverseRelation.collection;
-				const junctionRelations = relationsStore.getRelationsForCollection(junctionCollection);
-				const otherSide = junctionRelations.find(
-					(r: any) => r.collection === junctionCollection && r.related_collection !== collectionName
-				);
-				if (otherSide) {
-					relatedCollection = otherSide.related_collection;
-				}
-			}
-		} else {
-			const relations = relationsStore.getRelationsForField(collectionName, field.field);
-			if (relations?.[0]) {
-				relatedCollection = relations[0].related_collection || relations[0].meta?.one_collection;
-			}
-		}
-
-		if (relatedCollection && relatedCollection !== collectionName) {
-			const nestedProps = buildPropertiesFromCollection(relatedCollection, depth + 1, currentVisited);
-			if (Object.keys(nestedProps).length > 0) {
-				const isMultipleRelationship = special?.includes('o2m') || special?.includes('m2m');
-				target[field.field] = {
-					...nestedProps,
-					__displayName: typeof field.name === 'string' ? field.name : field.field,
-					__isMultipleRelationship: isMultipleRelationship,
-				};
-			}
-		} else {
-			const fieldName = typeof field.name === 'string' ? field.name : field.field;
-			target[field.field] = {
-				name: fieldName,
-				type: field.type,
-			};
-			if (field.meta?.options?.choices) {
-				target[field.field].choices = field.meta.options.choices;
-			}
-		}
-	}
-
-	// Sort fields by schema sort order
-	const sortedFields = [...fields].sort((a: any, b: any) => {
-		const sa = a?.meta?.sort ?? 0;
-		const sb = b?.meta?.sort ?? 0;
-		return sa - sb;
-	});
-
-	const createdGroups = new Set<string>();
-
-	sortedFields.forEach((field: any) => {
-		// Skip system fields
-		if (typeof field?.field !== 'string' || field.field.startsWith('$')) return;
-
-		const isGroup = field.type === 'alias' && field.meta?.special?.includes('group');
-		const groupKey = field.meta?.group;
-
-		// If this is a group, create a non-selectable container and add its members
-		if (isGroup) {
-			if (createdGroups.has(field.field)) return;
-			createdGroups.add(field.field);
-
-			const container: Record<string, any> = {
-				__displayName: typeof field.name === 'string' ? field.name : field.field,
-				__isGroup: true,
-			};
-
-			// Add members of this group in the same sorted order
-			sortedFields.forEach((member: any) => {
-				if (
-					typeof member?.field === 'string' &&
-					!member.field.startsWith('$') &&
-					member.meta?.group === field.field &&
-					!(member.type === 'alias' && member.meta?.special?.includes('group'))
-				) {
-					processField(member, container);
-				}
-			});
-
-			// Only add the group if it has children
-			const hasChildren = Object.keys(container).some(k => !k.startsWith('__'));
-			if (hasChildren) {
-				properties[field.field] = container;
-			}
-			return;
-		}
-
-		// If the field belongs to a group, it will be handled when that group is processed
-		if (typeof groupKey === 'string' && groupKey.length > 0) return;
-
-		// Otherwise, process as a top-level field
-		processField(field, properties);
-	});
-
-	return properties;
-}
-
-// Compute effective properties
+// Compute effective properties (only used for custom properties mode)
 const effectiveProperties = computed(() => {
-	// Priority 1: Collection-based properties
-	if (props.useCollection) {
-		return buildPropertiesFromCollection(props.useCollection);
+	// Only compute if we're not using system filter
+	if (useSystemFilter.value) {
+		return null;
 	}
 
-	// Priority 2: Custom properties
+	// Priority: Custom properties
 	if (props.properties) {
 		try {
 			return typeof props.properties === 'string' ? JSON.parse(props.properties) : props.properties;
@@ -223,10 +84,16 @@ const effectiveProperties = computed(() => {
 const tree = ref<any>(null);
 const branches = ref<Array<any>>([]);
 
-// Watch for changes and rebuild tree
+// Watch for changes and rebuild tree (only for custom properties mode)
 watch(
 	() => effectiveProperties.value,
 	newProps => {
+		if (useSystemFilter.value) {
+			tree.value = null;
+			branches.value = [];
+			return;
+		}
+
 		if (newProps) {
 			try {
 				tree.value = newProps;
@@ -463,67 +330,81 @@ function removeNode(ids: Array<string | number>) {
 </script>
 
 <template>
-	<v-notice v-if="!tree" type="warning"> Properties not setup correctly! </v-notice>
+	<!-- Use Directus built-in filter interface when collection is configured -->
+	<interface-system-filter
+		v-if="useSystemFilter"
+		class="filter-input"
+		:inline="inline"
+		:value="value"
+		:collection-name="useCollection"
+		:disabled="disabled"
+		@input="$emit('input', $event)"
+	/>
 
-	<div v-else class="rules-filter-interface" :class="{ inline, disabled, empty: innerValue.length === 0 }">
-		<v-notice v-if="innerValue.length === 0" type="info">
-			{{ t('interfaces.filter.no_rules') }}
+	<!-- Use custom properties-based filter interface when no collection is configured -->
+	<template v-else>
+		<v-notice v-if="!tree" type="warning"> Properties not setup correctly! </v-notice>
 
-			<div class="buttons">
-				<v-select
-					:inline="!inline"
-					item-text="name"
-					item-value="key"
-					placement="bottom-start"
-					class="add-filter"
-					:placeholder="t('interfaces.filter.add_filter')"
-					:full-width="inline"
-					:model-value="null"
-					:items="fieldOptions"
-					:mandatory="false"
-					:groups-clickable="true"
-					@update:modelValue="addNode($event)"
-				>
-					<template v-if="inline" #prepend>
-						<v-icon name="add" small />
-					</template>
-				</v-select>
-			</div>
-		</v-notice>
+		<div v-else class="rules-filter-interface" :class="{ inline, disabled, empty: innerValue.length === 0 }">
+			<v-notice v-if="innerValue.length === 0" type="info">
+				{{ t('interfaces.filter.no_rules') }}
 
-		<v-list v-else :mandatory="true">
-			<nodes
-				v-model:filter="innerValue"
-				:depth="1"
-				:tree="tree"
-				:branches="branches"
-				:inline="inline"
-				:disabled="disabled"
-				@remove-node="removeNode($event)"
-				@change="emitValue"
-			/>
-			<div class="buttons">
-				<v-select
-					:inline="!inline"
-					item-text="name"
-					item-value="key"
-					placement="bottom-start"
-					class="add-filter"
-					:placeholder="t('interfaces.filter.add_filter')"
-					:full-width="inline"
-					:model-value="null"
-					:items="fieldOptions"
-					:mandatory="false"
-					:groups-clickable="true"
-					@update:modelValue="addNode($event)"
-				>
-					<template v-if="inline" #prepend>
-						<v-icon name="add" small />
-					</template>
-				</v-select>
-			</div>
-		</v-list>
-	</div>
+				<div class="buttons">
+					<v-select
+						:inline="!inline"
+						item-text="name"
+						item-value="key"
+						placement="bottom-start"
+						class="add-filter"
+						:placeholder="t('interfaces.filter.add_filter')"
+						:full-width="inline"
+						:model-value="null"
+						:items="fieldOptions"
+						:mandatory="false"
+						:groups-clickable="true"
+						@update:modelValue="addNode($event)"
+					>
+						<template v-if="inline" #prepend>
+							<v-icon name="add" small />
+						</template>
+					</v-select>
+				</div>
+			</v-notice>
+
+			<v-list v-else :mandatory="true">
+				<nodes
+					v-model:filter="innerValue"
+					:depth="1"
+					:tree="tree"
+					:branches="branches"
+					:inline="inline"
+					:disabled="disabled"
+					@remove-node="removeNode($event)"
+					@change="emitValue"
+				/>
+				<div class="buttons">
+					<v-select
+						:inline="!inline"
+						item-text="name"
+						item-value="key"
+						placement="bottom-start"
+						class="add-filter"
+						:placeholder="t('interfaces.filter.add_filter')"
+						:full-width="inline"
+						:model-value="null"
+						:items="fieldOptions"
+						:mandatory="false"
+						:groups-clickable="true"
+						@update:modelValue="addNode($event)"
+					>
+						<template v-if="inline" #prepend>
+							<v-icon name="add" small />
+						</template>
+					</v-select>
+				</div>
+			</v-list>
+		</div>
+	</template>
 </template>
 
 <style>
