@@ -1,5 +1,5 @@
+import type { Filter } from '@directus/types';
 import { get } from 'lodash-es';
-import type { Filter } from 'rule-filter-validator';
 
 export function getNodeName(node: Filter): string {
 	return Object.keys(node)[0] as string;

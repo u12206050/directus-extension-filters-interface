@@ -1,4 +1,4 @@
-import { Filter } from '@directus/shared/types';
+import type { Filter } from '@directus/types';
 import { get } from 'lodash-es';
 
 export function getNodeName(node: Filter): string {
