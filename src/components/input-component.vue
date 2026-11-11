@@ -150,7 +150,8 @@ export default defineComponent({
 		});
 
 		onMounted(() => {
-			if (props.focus) inputEl.value?.focus();
+			const isEmpty = props.value === null || props.value === undefined || props.value === '';
+			if (props.focus && isEmpty) inputEl.value?.focus({ preventScroll: true });
 		});
 
 		const dateTimeMenu = ref();
